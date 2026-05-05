@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Danubia — Compêndio de Cidades e Vilarejos</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════ TEMAS ═══════════════════════════════ */
+:root {
+  --fs-base: 15px;
+}
+
+[data-theme="parchment"] {
+  --bg:          #f0e6cc;
+  --bg2:         #e8d9b5;
+  --bg3:         #ddd0a0;
+  --surface:     #fdf6e3;
+  --surface2:    #f5e9cc;
+  --border:      #b89b5e;
+  --accent:      #8B2020;
+  --accent2:     #c8a84b;
+  --text:        #2a1a0e;
+  --text2:       #5c3d1e;
+  --text3:       #7a5c30;
+  --header-bg:   #2a1a0e;
+  --header-text: #c8a84b;
+  --tag-bg:      #2a1a0e;
+  --tag-text:    #e8d9b5;
+  --shadow:      rgba(42,26,14,0.25);
+  --rank-bg:     #8B2020;
+  --rank-text:   #f5e9cc;
+}
+
+[data-theme="dark"] {
+  --bg:          #0d0d12;
+  --bg2:         #131320;
+  --bg3:         #1a1a2e;
+  --surface:     #1c1c2e;
+  --surface2:    #25253a;
+  --border:      #3d3d6b;
+  --accent:      #7b61ff;
+  --accent2:     #c084fc;
+  --text:        #e8e6f0;
+  --text2:       #b0aed0;
+  --text3:       #7b79a0;
+  --header-bg:   #0a0a18;
+  --header-text: #c084fc;
+  --tag-bg:      #2d2550;
+  --tag-text:    #c084fc;
+  --shadow:      rgba(0,0,0,0.6);
+  --rank-bg:     #7b61ff;
+  --rank-text:   #fff;
+}
+
+[data-theme="stone"] {
+  --bg:          #1e1e1e;
+  --bg2:         #252525;
+  --bg3:         #2d2d2d;
+  --surface:     #2a2a2a;
+  --surface2:    #333333;
+  --border:      #555;
+  --accent:      #c8a84b;
+  --accent2:     #e8c96a;
+  --text:        #e0d8c8;
+  --text2:       #b0a890;
+  --text3:       #7a7260;
+  --header-bg:   #111;
+  --header-text: #c8a84b;
+  --tag-bg:      #3a3020;
+  --tag-text:    #c8a84b;
+  --shadow:      rgba(0,0,0,0.5);
+  --rank-bg:     #c8a84b;
+  --rank-text:   #111;
+}
+
+[data-theme="blood"] {
+  --bg:          #1a0505;
+  --bg2:         #220808;
+  --bg3:         #2d0c0c;
+  --surface:     #250a0a;
+  --surface2:    #300d0d;
+  --border:      #6b1a1a;
+  --accent:      #e03030;
+  --accent2:     #ff7070;
+  --text:        #f0dada;
+  --text2:       #c09090;
+  --text3:       #906060;
+  --header-bg:   #0d0000;
+  --header-text: #e03030;
+  --tag-bg:      #400a0a;
+  --tag-text:    #ff9090;
+  --shadow:      rgba(80,0,0,0.5);
+  --rank-bg:     #8B0000;
+  --rank-text:   #f0dada;
+}
+
+/* ═══════════════════════════════ BASE ═══════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: var(--fs-base); scroll-behavior: smooth; }
+
+body {
+  font-family: 'Crimson Pro', Georgia, serif;
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background-color .4s, color .4s;
+  line-height: 1.65;
+}
+
+/* ─── NOISE TEXTURE OVERLAY ─── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: .4;
+}
+
+/* ─── CONTROLES FIXOS ─── */
+#controls {
+  position: fixed; top: 1rem; right: 1rem; z-index: 1000;
+  display: flex; gap: .5rem; align-items: center;
+  background: var(--header-bg);
+  border: 1px solid var(--border);
+  border-radius: 2rem;
+  padding: .4rem .8rem;
+  box-shadow: 0 4px 20px var(--shadow);
+  flex-wrap: wrap;
+  max-width: calc(100vw - 2rem);
+}
+
+#controls label {
+  font-family: 'Cinzel', serif;
+  font-size: .65rem;
+  color: var(--header-text);
+  letter-spacing: .05em;
+  opacity: .7;
+}
+
+.theme-btn {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer; transition: transform .2s, border-color .2s;
+  flex-shrink: 0;
+}
+.theme-btn:hover { transform: scale(1.2); }
+.theme-btn.active { border-color: var(--accent2); }
+.theme-btn[data-t="parchment"] { background: #c8a84b; }
+.theme-btn[data-t="dark"]      { background: #7b61ff; }
+.theme-btn[data-t="stone"]     { background: #555; }
+.theme-btn[data-t="blood"]     { background: #8B0000; }
+
+.fs-btn {
+  font-family: 'Cinzel', serif;
+  font-size: .7rem;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  border: 1px solid var(--border);
+  border-radius: .3rem;
+  padding: .1rem .45rem;
+  cursor: pointer;
+  transition: opacity .2s;
+  flex-shrink: 0;
+}
+.fs-btn:hover { opacity: .7; }
+
+/* ─── CABEÇALHO ─── */
+#masthead {
+  background: var(--header-bg);
+  border-bottom: 3px solid var(--accent);
+  padding: 3.5rem 2rem 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+#masthead::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.masthead-year {
+  font-family: 'Cinzel', serif;
+  font-size: .85rem;
+  letter-spacing: .3em;
+  color: var(--accent2);
+  opacity: .7;
+  margin-bottom: .5rem;
+  text-transform: uppercase;
+}
+
+.masthead-title {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(2rem, 6vw, 3.8rem);
+  font-weight: 900;
+  color: var(--header-text);
+  letter-spacing: .08em;
+  line-height: 1;
+  margin-bottom: .4rem;
+}
+
+.masthead-sub {
+  font-family: 'IM Fell English', serif;
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--accent2);
+  opacity: .85;
+  margin-bottom: 1.2rem;
+}
+
+/* ─── NAVEGAÇÃO ─── */
+#nav-tabs {
+  display: flex; justify-content: center; gap: .4rem;
+  flex-wrap: wrap;
+  padding: .8rem 1rem;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  padding: .4rem 1rem;
+  border-radius: 2rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .2s;
+  text-decoration: none;
+}
+.nav-tab:hover, .nav-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* ─── LAYOUT PRINCIPAL ─── */
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  position: relative; z-index: 1;
+}
+
+/* ─── SEÇÕES ─── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ─── TABELA RESUMO ─── */
+.summary-table-wrap {
+  overflow-x: auto;
+  border-radius: .5rem;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px var(--shadow);
+  margin-bottom: 2.5rem;
+}
+
+table.summary {
+  width: 100%; border-collapse: collapse;
+  font-size: .95rem;
+}
+
+table.summary thead {
+  background: var(--header-bg);
+}
+table.summary thead th {
+  font-family: 'Cinzel', serif;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: var(--header-text);
+  padding: .7rem 1rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+table.summary tbody tr { transition: background .15s; }
+table.summary tbody tr:nth-child(odd)  { background: var(--surface); }
+table.summary tbody tr:nth-child(even) { background: var(--surface2); }
+table.summary tbody tr:hover           { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+
+table.summary tbody td {
+  padding: .55rem 1rem;
+  color: var(--text);
+  font-size: .95rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; border-radius: 50%;
+  background: var(--rank-bg);
+  color: var(--rank-text);
+  font-family: 'Cinzel', serif;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.city-name-cell {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--accent2);
+}
+
+/* ─── CARDS ─── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 560px), 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: .6rem;
+  overflow: hidden;
+  box-shadow: 0 4px 16px var(--shadow);
+  transition: transform .2s, box-shadow .2s;
+}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px var(--shadow);
+}
+
+.card-header {
+  background: var(--header-bg);
+  padding: .9rem 1.2rem;
+  display: flex; align-items: center; gap: .9rem;
+  border-bottom: 2px solid var(--accent);
+}
+
+.card-rank {
+  background: var(--rank-bg);
+  color: var(--rank-text);
+  font-family: 'Cinzel', serif;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: .25rem .6rem;
+  border-radius: .3rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.card-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--header-text);
+  flex: 1;
+}
+
+.card-body { padding: 1rem 1.2rem; }
+
+.stats-row {
+  display: flex; gap: 1rem; flex-wrap: wrap;
+  margin-bottom: .8rem;
+}
+
+.stat-box {
+  flex: 1; min-width: 130px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: .4rem;
+  padding: .5rem .8rem;
+  text-align: center;
+}
+.stat-label {
+  font-family: 'Cinzel', serif;
+  font-size: .65rem;
+  letter-spacing: .1em;
+  color: var(--accent2);
+  opacity: .8;
+  text-transform: uppercase;
+  margin-bottom: .2rem;
+}
+.stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.geo-text {
+  font-size: .95rem;
+  color: var(--text2);
+  font-style: italic;
+  margin-bottom: 1rem;
+  padding: .6rem .8rem;
+  background: var(--bg3);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 .3rem .3rem 0;
+}
+
+/* NPC TABLE */
+.npc-section-title {
+  font-family: 'Cinzel', serif;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: .5rem;
+}
+
+.npc-table-wrap { overflow-x: auto; border-radius: .4rem; border: 1px solid var(--border); }
+
+table.npc-table {
+  width: 100%; border-collapse: collapse;
+  font-size: .9rem;
+}
+table.npc-table thead {
+  background: color-mix(in srgb, var(--header-bg) 90%, var(--accent) 10%);
+}
+table.npc-table thead th {
+  font-family: 'Cinzel', serif;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  color: var(--accent2);
+  padding: .5rem .8rem;
+  text-align: left;
+}
+table.npc-table tbody tr:nth-child(odd)  { background: var(--surface); }
+table.npc-table tbody tr:nth-child(even) { background: var(--surface2); }
+table.npc-table tbody td {
+  padding: .5rem .8rem;
+  color: var(--text);
+  font-size: .9rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  vertical-align: top;
+}
+.npc-name  { font-weight: 600; color: var(--accent2); white-space: nowrap; }
+.npc-cargo { color: var(--text2); font-style: italic; }
+.npc-class { color: var(--text3); font-size: .85rem; white-space: nowrap; }
+.npc-desc  { font-size: .88rem; color: var(--text2); }
+
+/* ─── SECÇÃO TÍTULOS ─── */
+.section-header {
+  display: flex; align-items: center; gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: .8rem;
+  border-bottom: 2px solid var(--border);
+}
+.section-header h2 {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: .05em;
+}
+.section-header .count-badge {
+  font-family: 'Cinzel', serif;
+  font-size: .75rem;
+  background: var(--accent);
+  color: #fff;
+  padding: .2rem .7rem;
+  border-radius: 2rem;
+}
+
+/* ─── FILTRO / BUSCA ─── */
+.search-bar {
+  width: 100%; max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2rem;
+  padding: .5rem 1.2rem;
+  font-family: 'Crimson Pro', serif;
+  font-size: 1rem;
+  color: var(--text);
+  margin-bottom: 1.2rem;
+  outline: none;
+  transition: border-color .2s;
+}
+.search-bar:focus { border-color: var(--accent); }
+.search-bar::placeholder { color: var(--text3); opacity: .7; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 600px) {
+  .stats-row { flex-direction: column; }
+  .npc-class { display: none; }
+  #controls { top: .5rem; right: .5rem; gap: .3rem; }
+}
+
+/* ─── SCROLL TOP ─── */
+#to-top {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  width: 2.5rem; height: 2.5rem;
+  background: var(--accent);
+  color: #fff;
+  border: none; border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s;
+  z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+}
+#to-top.show { opacity: 1; pointer-events: all; }
+
+/* ─── DIVIDER ─── */
+.ornament {
+  text-align: center;
+  font-size: 1.2rem;
+  color: var(--accent2);
+  opacity: .4;
+  margin: .3rem 0;
+  letter-spacing: .5em;
+}
+</style>
+</head>
+<body data-theme="parchment">
+
+<!-- CONTROLES -->
+<div id="controls">
+  <label>TEMA</label>
+  <button class="theme-btn active" data-t="parchment" title="Pergaminho" onclick="setTheme(this)"></button>
+  <button class="theme-btn" data-t="dark"      title="Noite Arcana"  onclick="setTheme(this)"></button>
+  <button class="theme-btn" data-t="stone"     title="Pedra"         onclick="setTheme(this)"></button>
+  <button class="theme-btn" data-t="blood"     title="Sangue"        onclick="setTheme(this)"></button>
+  <label style="margin-left:.4rem">A</label>
+  <button class="fs-btn" onclick="changeFontSize(-1)">−</button>
+  <button class="fs-btn" onclick="changeFontSize(+1)">+</button>
+</div>
+
+<!-- BOTÃO TOPO -->
+<button id="to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- CABEÇALHO -->
+<div id="masthead">
+  <div class="masthead-year">✦ Ano 5026 desde a fundação das primeiras cidades ✦</div>
+  <div class="masthead-title">DANUBIA</div>
+  <div class="masthead-sub">Compêndio de Cidades, Vilarejos, Populações e Figuras de Poder</div>
+</div>
+
+<!-- NAVEGAÇÃO -->
+<div id="nav-tabs">
+  <button class="nav-tab active" onclick="showSection('cidades-resumo', this)">Resumo — Cidades</button>
+  <button class="nav-tab" onclick="showSection('cidades-fichas', this)">Fichas — Cidades</button>
+  <button class="nav-tab" onclick="showSection('vilarejos-resumo', this)">Resumo — Vilarejos</button>
+  <button class="nav-tab" onclick="showSection('vilarejos-fichas', this)">Fichas — Vilarejos</button>
+  <a class="nav-tab" href="mesa-danubia.html#map">Mapa</a>
+  <a class="nav-tab" href="mesa-danubia.html#city">Cidade</a>
+  <a class="nav-tab" href="mesa-danubia.html#dungeon">Masmorras</a>
+</div>
+
+<main>
+
+<!-- ════════════ SEÇÃO: RESUMO CIDADES ════════════ -->
+<div id="cidades-resumo" class="section active">
+  <div class="section-header">
+    <h2>Cidades Grandes de Danubia</h2>
+    <span class="count-badge">20 cidades</span>
+  </div>
+  <input class="search-bar" type="search" placeholder="Buscar cidade..." oninput="filterTable(this, 'tbl-cidades')"/>
+  <div class="summary-table-wrap">
+    <table class="summary" id="tbl-cidades">
+      <thead><tr>
+        <th>#</th><th>Cidade</th><th>População Est.</th><th>Área</th><th>Terreno</th><th>Raças</th>
+      </tr></thead>
+      <tbody id="tbody-cidades"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════ SEÇÃO: FICHAS CIDADES ════════════ -->
+<div id="cidades-fichas" class="section">
+  <div class="section-header">
+    <h2>Fichas Detalhadas — Cidades</h2>
+    <span class="count-badge">20 cidades</span>
+  </div>
+  <input class="search-bar" type="search" placeholder="Buscar cidade ou NPC..." oninput="filterCards(this, 'grid-cidades')"/>
+  <div class="cards-grid" id="grid-cidades"></div>
+</div>
+
+<!-- ════════════ SEÇÃO: RESUMO VILAREJOS ════════════ -->
+<div id="vilarejos-resumo" class="section">
+  <div class="section-header">
+    <h2>Vilarejos de Danubia</h2>
+    <span class="count-badge">30 vilarejos</span>
+  </div>
+  <input class="search-bar" type="search" placeholder="Buscar vilarejo..." oninput="filterTable(this, 'tbl-vilarejos')"/>
+  <div class="summary-table-wrap">
+    <table class="summary" id="tbl-vilarejos">
+      <thead><tr>
+        <th>#</th><th>Vilarejo</th><th>População Est.</th><th>Área</th><th>Terreno</th><th>Raças</th>
+      </tr></thead>
+      <tbody id="tbody-vilarejos"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════ SEÇÃO: FICHAS VILAREJOS ════════════ -->
+<div id="vilarejos-fichas" class="section">
+  <div class="section-header">
+    <h2>Fichas Detalhadas — Vilarejos</h2>
+    <span class="count-badge">30 vilarejos</span>
+  </div>
+  <input class="search-bar" type="search" placeholder="Buscar vilarejo ou NPC..." oninput="filterCards(this, 'grid-vilarejos')"/>
+  <div class="cards-grid" id="grid-vilarejos"></div>
+</div>
+
+</main>
+
+<script>
+// ════════════════════════════ DADOS ════════════════════════════
+const CIDADES = [
+  { rank:1,  nome:"Thais",           pop:"95.000 – 110.000", area:"~420 km²", terreno:"Costeira / Portuária",     racas:"Humanos, Elfos, Meio-Orcs",
+    geo:"Cidade-porto ao longo de 18 km de costa, espalhando-se para dentro do continente por planícies de areia e pedra de sal. Porto principal com 4 cais de grande porte, muralha dupla.",
+    npcs:[
+      ["Rukoloano",      "Rei de Thais",                "Humano / Guerreiro Nv.15",  "Monarca de meia-idade, estrategista brilhante. Veste armadura cerimonial dourada. Justo mas impiedoso com traidores."],
+      ["Lema Brix",      "Rainha de Thais",             "Humana / Maga Nv.14",       "Conselheira política e arcana do rei. Cabelos brancos precoces, olhar penetrante. Criadora da política de controle de artefatos."],
+      ["Garen Thol",     "Comandante da Guarda Real",   "Humano / Guerreiro Nv.12",  "Responsável por 800 guardas da cidade. Cicatriz horizontal no queixo. Desconfia de aventureiros."],
+      ["Preva Sol",      "Capitã do Porto",             "Halfling / Ladino Nv.10",   "Controla entrada e saída de todos os navios. Cobra taxas com eficiência implacável. Conhece todo contrabando que passa pelo cais."],
+      ["Dorthan Beil",   "Mestre da Guilda (Filhos de Thais)", "Humano / Clérigo Nv.13","Administra o Distrito das Guildas. Mantém os rankings. Idoso, calvo, voz grave. Não entra mais em ruínas."],
+      ["Seris Vane",     "Juíza-Arcana",                "Elfa / Maga Nv.11",         "Responsável por julgar crimes envolvendo artefatos e magia. Fria e precisa. Ninguém a suborna."],
+      ["Brugg Maun",     "Chefe da Guarda das Catacumbas","Meio-Orc / Guerreiro Nv.9","Vigia a entrada das catacumbas com 40 homens. Respeita força bruta. Curioso sobre os candidatos."],
+      ["Yola Mist",      "Curandeira-Chefe do Orvalho", "Humana / Clérigo Nv.10",    "Supervisiona uso do Grande Orvalho. Controla filas, distribui água sagrada. Devota ao povo."],
+      ["Cren Dalu",      "Chefe dos Informantes",       "Halfling / Ladino Nv.8",    "Opera nas sombras do Porto Velho. Vende informações sobre ruínas, rivais e contratos. Sorri sempre."],
+      ["Aldris Comb",    "Ferreiro Real",               "Anão / Artesão Nv.10",      "Fabrica e avalia equipamentos para grupos rankeados. Voz alta, mãos enormes. Recusa clientes de baixo rank."],
+    ]},
+  { rank:2,  nome:"Drakenthal",      pop:"82.000 – 90.000",  area:"~380 km²", terreno:"Montanhosa / Vulcânica",   racas:"Anões, Humanos",
+    geo:"Cidade-fortaleza em anfiteatro natural entre dois picos vulcânicos. Muralhas de basalto negro. Rede de túneis subterrâneos conecta os bairros. Fumaça permanente no horizonte.",
+    npcs:[
+      ["Korrund Ashveil","Rei-Forjador",                "Anão / Guerreiro Nv.16",    "Governa Drakenthal há 60 anos. Usa coroa fundida em metal vulcânico. Voz como trovão."],
+      ["Brelda Morne",   "Marechal das Forjas",         "Anã / Guerreira Nv.12",     "Comanda as milícias e controla produção de armas. Irmã do rei. Inflexível."],
+      ["Thyrak Sol",     "Arquimago da Forja Negra",    "Humano / Mago Nv.13",       "Único não-anão no alto conselho. Especialista em encantamento de metal. Arrogante mas genial."],
+      ["Vreth Cinder",   "Chefe dos Escavadores",       "Anão / Ladino Nv.10",       "Comanda as equipes de mineração profunda. Conhece cada veio de minério raro da montanha."],
+      ["Durm Gatewatch", "Capitão da Muralha",          "Anão / Guerreiro Nv.11",    "Guarda as 3 portas de basalto. Nunca dormiu fora da muralha em sua vida."],
+    ]},
+  { rank:3,  nome:"Ossebra",         pop:"74.000 – 80.000",  area:"~510 km²", terreno:"Florestal / Fluvial",      racas:"Elfos, Humanos",
+    geo:"Cidade élfica construída em plataformas entre árvores milenares (50–80m de altura). Rio Ebra corta a cidade ao meio. Estrutura horizontal: sem muralhas, apenas sentinelas em copas.",
+    npcs:[
+      ["Aerindel Voss",  "Conselheira-Rainha",          "Elfa / Maga Nv.17",         "Governa por consenso do conselho élfico. Mais de 900 anos. Guarda os mapas das ruínas pré-humanas."],
+      ["Thalion Brym",   "Chefe dos Arquivistas",       "Elfo / Ladino Nv.11",       "Controla o acesso à Biblioteca das Copas. Sabe onde cada mapa falso foi plantado."],
+      ["Miravel Dawn",   "Capitã das Sentinelas",       "Elfa / Ranger Nv.13",       "200 sentinelas sob seu comando, todas élfica. Nenhum intruso passou pela floresta sem ela saber."],
+      ["Eolan Marsh",    "Embaixador para Humanos",     "Elfo / Bardo Nv.9",         "Único élfico que gosta genuinamente de humanos. Media conflitos por ruínas."],
+      ["Sel Vira",       "Guardiã do Rio",              "Elfa / Druida Nv.12",       "Controla o fluxo do rio Ebra. Pode afogar ou secar seções inteiras da cidade como defesa."],
+    ]},
+  { rank:4,  nome:"Velmoor",         pop:"68.000 – 75.000",  area:"~350 km²", terreno:"Planície / Estepe",        racas:"Humanos, Halflings",
+    geo:"Planície aberta sem muralha completa — apenas paliçada dupla. Cidade horizontal, ruas largas para passagem de caravanas. Maior mercado a céu aberto de Danubia.",
+    npcs:[
+      ["Dorvan Kess",    "Governador-Mercador",         "Humano / Ladino Nv.11",     "Eleito pelo conselho comercial. Rico, gordo, generoso com aliados e cruel com devedores."],
+      ["Marta Bren",     "Chefe da Guarda da Planície", "Humana / Guerreira Nv.10",  "Comanda 600 guardas espalhados pela planície. Especialista em combate montado."],
+      ["Oshiv Tal",      "Mestre das Caravanas",        "Halfling / Ladino Nv.9",    "Coordena todas as rotas comerciais. Conhece cada bandido operando nas estradas."],
+      ["Presta Vane",    "Sacerdotisa do Mercado",      "Humana / Clérigo Nv.8",     "Abençoa contratos e resolve disputas comerciais no Templo da Troca."],
+    ]},
+  { rank:5,  nome:"Halveth",         pop:"61.000 – 68.000",  area:"~290 km²", terreno:"Tundra / Norte",           racas:"Humanos, Anões",
+    geo:"Cidade compacta em círculos concêntricos de pedra. Muralha simples de granito cinza com torres de vigia a cada 200m. Temperatura média: −8°C no inverno.",
+    npcs:[
+      ["Sigrun Frostmark","Jarla (Governante)",         "Humana / Guerreira Nv.14",  "Guerreira lendária. Governa pelo direito do combate. Cabelos brancos, olhos cinzas, voz calma que corta o silêncio."],
+      ["Brond Tusk",     "Mestre das Ruínas Glaciais",  "Anão / Clérigo Nv.11",      "Especialista em artefatos preservados pelo gelo. Lidera todas as expedições ao norte."],
+      ["Vera Coldhand",  "Capitã das Torres",           "Humana / Ranger Nv.10",     "Comanda os atiradores de elite nas torres da muralha. Vista de águia, mão firme."],
+      ["Olum Skarl",     "Curandeiro-Chefe",            "Humano / Clérigo Nv.9",     "Trata feridos de expedições e da brutalidade do clima. Sempre de bom humor, apesar de tudo."],
+    ]},
+  { rank:6,  nome:"Solavar",         pop:"58.000 – 64.000",  area:"~300 km²", terreno:"Desértica / Árida",        racas:"Humanos, Meio-Orcs",
+    geo:"Deserto dourado. Cidade murada em círculo único de arenito alaranjado. Torres de observação altíssimas (30m). Aqueduto subterrâneo de fonte oculta alimenta a cidade.",
+    npcs:[
+      ["Rasheen al Voss", "Sultana do Deserto",         "Humana / Ladina Nv.13",     "Controla o comércio de água com mão de ferro. Usa véu dourado. Negocia tudo, mas nunca perde."],
+      ["Dorn Blaze",     "Chefe dos Escavadores do Deserto","Meio-Orc / Guerreiro Nv.11","Lidera expedições às ruínas solares. Resistente ao calor extremo. Sem medo de nada."],
+      ["Saria Veil",     "Maga das Areias",             "Humana / Maga Nv.12",       "Especialista em ilusões do deserto e artefatos de calor. Protege o aqueduto com feitiços."],
+      ["Taruk",          "Capitão da Guarda do Portão", "Meio-Orc / Guerreiro Nv.9", "Guarda a única entrada da cidade com 200 soldados. Incorruptível."],
+    ]},
+  { rank:7,  nome:"Porto Cinzento",  pop:"54.000 – 60.000",  area:"~260 km²", terreno:"Costeira / Nebulosa",      racas:"Humanos, Halflings, Elfos",
+    geo:"Costa ocidental com névoa permanente. Labirinto de ruelas medievais. Muralha baixa de pedra cinza coberta de musgo.",
+    npcs:[
+      ["Ven Malkris",    "Prefeito das Sombras",        "Humano / Ladino Nv.12",     "Governante 'oficial', mas todos sabem que controla também o submundo. Nunca é visto duas vezes no mesmo lugar."],
+      ["Dela Rue",       "Chefe dos Cartógrafos",       "Humana / Maga Nv.10",       "Vende mapas de ruínas — alguns falsos, cobra preço extra pelos verdadeiros."],
+      ["Gort Silentwatch","Capitão dos Guardas do Porto","Meio-Orc / Guerreiro Nv.10","Faz vista grossa a contrabando menor, mas protege a cidade de ameaças reais."],
+      ["Lirel Dusk",     "Corretora de Informações",    "Elfa / Barda Nv.9",         "Sabe de tudo sobre todos. Opera na taverna A Âncora Partida. Nunca revela fontes."],
+    ]},
+  { rank:8,  nome:"Ironvale",        pop:"52.000 – 58.000",  area:"~270 km²", terreno:"Vale / Industrial",        racas:"Anões, Humanos, Meio-Orcs",
+    geo:"Vale fechado entre serras. Rio industrial move engenhos de forja. Fumaça constante de 40 fundições ativas. Muralha reforçada com metal reciclado.",
+    npcs:[
+      ["Harvin Steelborn","Barão Industrial",           "Humano / Guerreiro Nv.11",  "Controla as fundições. Homem prático, sem paciência para política. Armas de Ironvale valem ouro em qualquer guilda."],
+      ["Drakka Vein",    "Mestra dos Altos-Fornos",     "Anã / Artesã Nv.13",        "A melhor forjadora de equipamentos de escavação do continente. Trabalha dia e noite."],
+      ["Orro Chains",    "Chefe da Segurança Industrial","Meio-Orc / Guerreiro Nv.10","Protege as fundições de sabotagem e espionagem de cidades rivais."],
+    ]},
+  { rank:9,  nome:"Mireth",          pop:"49.000 – 55.000",  area:"~340 km²", terreno:"Lacustre / Pântano",       racas:"Elfos, Humanos, Halflings",
+    geo:"Cidade em palafitas sobre lago de pântano de 80km². Ilhas artificiais conectadas por pontes de madeira. Sem muralha — o lago é a defesa.",
+    npcs:[
+      ["Sylara Bogs",    "Dama das Águas",              "Elfa / Druida Nv.14",       "Governa interpretando os movimentos do pântano. Fala com animais. Odiada pelos mercadores, amada pelo povo."],
+      ["Corin Ladle",    "Mestre Alquimista",           "Humano / Mago Nv.12",       "Maior produtor de poções do continente. Laboratório subaquático. Vende a qualquer guilda com dinheiro."],
+      ["Tessra Mire",    "Capitã dos Barcos-Guarda",    "Halfling / Ladina Nv.9",    "Comanda 30 barcos de patrulha no lago. Conhece cada rota oculta."],
+    ]},
+  { rank:10, nome:"Caern do Sul",    pop:"47.000 – 53.000",  area:"~310 km²", terreno:"Costeira / Tropical",      racas:"Humanos, Meio-Orcs",
+    geo:"Porto tropical. Temperatura sempre alta, vegetação exuberante adentrando a cidade. Dois cais grandes. Muralha de pedra calcária branca.",
+    npcs:[
+      ["Bren Corsair",   "Capitão-Governador",          "Humano / Ladino Nv.12",     "Ex-pirata reformado que se tornou governante. Ainda usa a mesma faca enferrujada da época de pirata."],
+      ["Mira Thorn",     "Almirante do Porto Sul",      "Humana / Guerreira Nv.11",  "Comanda a frota militar que protege as rotas tropicais. Rígida com disciplina naval."],
+      ["Yssel Greenback","Gestora das Ruínas Tropicais","Meio-Orc / Clérigo Nv.10",  "Organiza e registra todas as expedições às ruínas da selva sul. Cobra uma taxa por vida salva."],
+    ]},
+  { rank:11, nome:"Tundram",         pop:"45.000 – 50.000",  area:"~260 km²", terreno:"Montanhosa / Subterrânea", racas:"Anões",
+    geo:"Segunda cidade anã. 70% subterrânea. A superfície exibe apenas torres de ventilação e portões de granito. Temperatura constante de 4°C nas galerias.",
+    npcs:[
+      ["Gornak Deepvein","Rei-Minerador",               "Anão / Guerreiro Nv.14",    "Governa as galerias com rigidez militar. Descobriu o maior veio de mineral arcano em 200 anos."],
+      ["Bressa Lode",    "Chefe Bibliotecarista",       "Anã / Maga Nv.11",          "Guarda a maior biblioteca de mineralogia arcana do mundo. Não empresta livro para ninguém."],
+      ["Hork Tunnelwatch","Capitão das Galerias",       "Anão / Guerreiro Nv.10",    "Protege os 200km de túneis. Sabe exatamente o que há em cada galeria."],
+    ]},
+  { rank:12, nome:"Faelcross",       pop:"42.000 – 48.000",  area:"~290 km²", terreno:"Florestal / Temperada",    racas:"Humanos, Elfos",
+    geo:"Floresta temperada densa. Cidade semi-aberta, construída rente às árvores. Sem muralha de pedra. Cruzamento de 4 grandes rotas florestais.",
+    npcs:[
+      ["Kael Ashtrack",  "Prefeito Caçador",            "Humano / Ranger Nv.11",     "Governa como um primeiro entre iguais. Mais respeitado por sua habilidade de caça do que pelo cargo."],
+      ["Lyra Feather",   "Mestra dos Rangers de Elite", "Elfa / Ranger Nv.14",       "Treina os melhores rastreadores do continente. Aceita poucos alunos. Desaparece por meses na floresta."],
+      ["Bren Stumps",    "Dono do Mercado de Animais",  "Halfling / Ladino Nv.8",    "Vende e doma animais exóticos capturados em ruínas. Questionavelmente legal."],
+    ]},
+  { rank:13, nome:"Selvorn",         pop:"40.000 – 46.000",  area:"~420 km²", terreno:"Selva / Tropical",         racas:"Meio-Orcs, Humanos",
+    geo:"Selva tropical densa. Cidade em clareira artificial mantida a força. Muralha de troncos reforçados com metal. A selva recresce e é cortada mensalmente.",
+    npcs:[
+      ["Drakon Vesh",    "Senhor das Ruínas",           "Meio-Orc / Guerreiro Nv.13","Governa com punho de ferro. Perdeu um olho em ruína. Respeita apenas força."],
+      ["Mirra Wilds",    "Curandeira da Selva",         "Humana / Druida Nv.10",     "Trata feridos de expedições. Conhece cada planta medicinal e venenosa da selva."],
+      ["Torg Gatespike", "Capitão da Muralha Verde",    "Meio-Orc / Guerreiro Nv.11","Mantém a muralha de troncos. Dorme pouco. A selva nunca para de tentar entrar."],
+    ]},
+  { rank:14, nome:"Narath",          pop:"38.000 – 44.000",  area:"~230 km²", terreno:"Costeira / Rochosa",       racas:"Humanos, Halflings",
+    geo:"Costa rochosa com penhascos de 40m. Cidade em degraus escavados na rocha. Porto pequeno mas profundo. Especializada em mergulho e recuperação subaquática.",
+    npcs:[
+      ["Corin Deepdive", "Prefeita Náutica",            "Humana / Ladina Nv.10",     "Ex-mergulhadora. Governa Narath com conhecimento prático do mar."],
+      ["Sel Aquam",      "Mago das Águas Profundas",    "Elfo / Mago Nv.12",         "Especialista em magia aquática. Cria feitiços de respiração subaquática para expedições."],
+      ["Ruk Anchor",     "Capitão da Guarda Costeira",  "Meio-Orc / Guerreiro Nv.9", "Comanda 15 embarcações de patrulha costeira. Odeia piratas com paixão pessoal."],
+    ]},
+  { rank:15, nome:"Duskholm",        pop:"36.000 – 42.000",  area:"~280 km²", terreno:"Planície / Fronteiriça",   racas:"Humanos, Elfos",
+    geo:"Planície de fronteira entre dois reinos históricos. Névoa permanente nas manhãs. Muralha dupla com zona neutra entre as duas paredes. Portal de ruína mais documentado do continente.",
+    npcs:[
+      ["Avel Cross",     "Prefeito-Diplomata",          "Humano / Bardo Nv.11",      "Mantém a paz entre as duas facções da cidade. Fala seis idiomas. Nunca toma partido aberto."],
+      ["Dorin Wallguard","Comandante da Zona Neutra",   "Humano / Guerreiro Nv.10",  "Comanda a guarda da zona entre as muralhas. Neutro por obrigação, cansado por vocação."],
+      ["Sera Portalmage","Pesquisadora do Portal",      "Humana / Maga Nv.13",       "Dedica a vida a estudar o portal de ruína. Ainda não entrou nele. Com medo. Justificado."],
+    ]},
+  { rank:16, nome:"Variel",          pop:"33.000 – 38.000",  area:"~350 km²", terreno:"Florestal / Sagrada",      racas:"Elfos (exclusivo)",
+    geo:"Floresta sagrada élfica. Cidade invisível de fora — protegida por ilusões permanentes. Construção orgânica, sem ângulos retos.",
+    npcs:[
+      ["Caelindra Vayne","Alta Sacerdotisa-Rainha",     "Elfa / Maga Nv.18",         "Governa por direito ancestral. Mais de 1.200 anos. Guarda rituais de preservação que podem salvar ou destruir cidades."],
+      ["Thorm Veilkeeper","Guardião das Ilusões",       "Elfo / Mago Nv.14",         "Mantém as ilusões que escondem Variel. Se morrer, a cidade fica visível instantaneamente."],
+      ["Lira Sanctumblade","Capitã da Guarda Sagrada",  "Elfa / Guerreira Nv.13",    "100 guerreiras élfica sob seu comando. Nenhum forasteiro passou sem salvo-conduto da rainha."],
+    ]},
+  { rank:17, nome:"Cravenspire",     pop:"31.000 – 36.000",  area:"~240 km²", terreno:"Montanhosa / Sombria",     racas:"Humanos, Meio-Orcs",
+    geo:"Base de pico inacessível. Sombra permanente. Ruas estreitas e sinuosas. Muralha de pedra negra. Cultos e pesquisadores de magia sombria operam semi-abertamente.",
+    npcs:[
+      ["Mord Blackspire", "Senhor das Sombras",         "Humano / Ladino Nv.13",     "Governa Cravenspire há 20 anos sem título oficial. Todos sabem quem manda. Ninguém o desafia duas vezes."],
+      ["Vella Darkweave", "Arquimaga das Sombras",      "Humana / Maga Nv.14",       "Pesquisadora de magia proibida. Opera na legalidade marginal. Seus feitiços são vendidos a preço alto."],
+      ["Grak Nightguard", "Capitão das Sombras",        "Meio-Orc / Guerreiro Nv.11","Comanda os 300 guardas de Cravenspire. Disciplina de ferro. Não faz perguntas sobre o que protege."],
+    ]},
+  { rank:18, nome:"Eldenmoor",       pop:"29.000 – 34.000",  area:"~310 km²", terreno:"Pantanosa / Brumosa",      racas:"Humanos, Halflings",
+    geo:"Pântano com ilhas de terra firme. Cidade de acadêmicos em estruturas de pedra cinza. Ossadas de criaturas antigas afloram no pântano. Centro de paleontologia e estudos arcanos.",
+    npcs:[
+      ["Profa. Livia Marsh","Reitora da Academia",      "Humana / Maga Nv.13",       "Governa Eldenmoor como reitora vitalícia. Publicou 40 tratados sobre civilizações extintas."],
+      ["Brel Bonedigger", "Chefe dos Escavadores Acadêmicos","Halfling / Ladino Nv.9","Coordena todas as escavações. Pequeno, veloz, extraordinariamente curioso. Nunca usa luvas."],
+      ["Orm Swampcap",    "Capitão da Guarda do Pântano","Humano / Ranger Nv.10",    "Protege a cidade das criaturas do pântano. Conhece 47 espécies distintas de ameaças locais."],
+    ]},
+  { rank:19, nome:"Bhalrock",        pop:"27.000 – 32.000",  area:"~190 km²", terreno:"Vulcânica / Subterrânea",  racas:"Meio-Orcs, Anões",
+    geo:"Sopé de vulcão ativo. 40% da cidade é subterrânea. Calor de 45°C nas galerias mais profundas. Evacuações frequentes por atividade vulcânica.",
+    npcs:[
+      ["Gorr Ashborn",    "Rei das Forjas Profundas",   "Meio-Orc / Guerreiro Nv.12","Governa por ser o único capaz de operar nas forjas mais profundas. Pele escurecida pelo calor vulcânico."],
+      ["Drekka Magmacraft","Forjadora de Lendas",       "Anã / Artesã Nv.15",        "Cria armas usando metal extraído diretamente de lava. Peças lendárias. Fila de espera: 3 anos."],
+      ["Vel Heatwatch",   "Capitão das Galerias Vulcânicas","Anão / Guerreiro Nv.10","Monitora atividade vulcânica e coordena evacuações. O homem mais estressado de Danubia."],
+    ]},
+  { rank:20, nome:"Serathis",        pop:"24.000 – 29.000",  area:"~200 km²", terreno:"Costeira / Ártica",        racas:"Elfos, Humanos",
+    geo:"Extremo norte, gelo semipermanente. Construções de pedra e osso. Porto ártico para expedições polares. Arquivos mais completos sobre civilizações extintas do período glacial.",
+    npcs:[
+      ["Ivara Frostbound","Governadora Ártica",         "Elfa / Maga Nv.12",         "Governa Serathis há 300 anos. Memória viva do período glacial. Fria no temperamento e no habitat."],
+      ["Torrus Icebreaker","Comandante da Frota Polar", "Humano / Guerreiro Nv.11",  "Comanda os navios de exploração ártica. Perdeu dois dedos ao frio. Ganhou 12 artefatos glaciais."],
+      ["Sela Coldarchive","Guardiã dos Arquivos Glaciais","Humana / Clérigo Nv.9",   "Mantém e traduz registros de civilizações extintas. Sabe coisas que ninguém mais sabe."],
+    ]},
+];
+
+const VILAREJOS = [
+  {rank:1, nome:"Pedra Funda",       pop:"2.800–3.500", area:"~18 km²", terreno:"Montanhosa", racas:"Anões, Humanos",
+   geo:"Entrada de mina profunda. Ponto de parada antes de entrar nas ruínas das montanhas.",
+   npcs:[["Gorund Pickaxe","Prefeito-Minerador","Anão / Guerreiro Nv.6","Lidera a comunidade e coordena as turmas de mineração."],["Brek Stoneguard","Chefe da Guarda Local","Anão / Guerreiro Nv.5","4 guardas sob seu comando. Seria mais se tivesse orçamento."]]},
+  {rank:2, nome:"Riacho das Cinzas", pop:"2.600–3.200", area:"~14 km²", terreno:"Ribeirinha / Cinza vulcânico", racas:"Humanos",
+   geo:"Às margens de rio de tom acinzentado por minerais. Pesca e coleta de minérios leves.",
+   npcs:[["Mira Graywater","Prefeita Pescadora","Humana / Ladina Nv.5","Negocia recursos do rio com cidades vizinhas."],["Trel Ashwatch","Guarda do Rio","Humano / Guerreiro Nv.4","Único guarda oficial. Muito ocupado."]]},
+  {rank:3, nome:"Aldeia do Sal",     pop:"2.400–3.000", area:"~12 km²", terreno:"Costeira / Salinas", racas:"Humanos, Halflings",
+   geo:"Produção artesanal de sal. Ponto de abastecimento para expedições costeiras.",
+   npcs:[["Perin Saltmaster","Mestre do Sal","Halfling / Artesão Nv.6","Controla produção e venda do sal. Mais rico do vilarejo."],["Dorna Watch","Guarda das Salinas","Humana / Guerreira Nv.4","Protege as salinas de ladrões."]]},
+  {rank:4, nome:"Colina dos Corvos", pop:"2.200–2.800", area:"~10 km²", terreno:"Colina temperada", racas:"Humanos, Elfos",
+   geo:"Famosa pelos corvos domesticados usados como mensageiros entre guildas.",
+   npcs:[["Ravin Corvcall","Prefeito-Mensageiro","Humano / Ladino Nv.5","Treina corvos mensageiros para guildas. Lucrativo."],["Sel Darkfeather","Tratador-Chefe","Elfo / Druida Nv.6","Cuida dos corvos. Fala com eles. Literalmente."]]},
+  {rank:5, nome:"Margem Seca",       pop:"2.100–2.600", area:"~15 km²", terreno:"Árida / Rio seco", racas:"Humanos, Meio-Orcs",
+   geo:"Às margens de um leito de rio seco. Sobrevive do comércio de água tratada.",
+   npcs:[["Torn Dustwalker","Prefeito do Comércio de Água","Meio-Orc / Guerreiro Nv.5","Controla o precioso poço artesiano local."]]},
+  {rank:6, nome:"Encosta Verde",     pop:"2.000–2.500", area:"~16 km²", terreno:"Florestal / Úmida", racas:"Humanos, Elfos",
+   geo:"Vilarejo de herboristas e curandeiros. Fornece poções básicas a preços acessíveis para aventureiros iniciantes.",
+   npcs:[["Lyra Herbmoor","Curandeira-Prefeita","Humana / Druida Nv.7","Governa e cura. Fornece poções a preços acessíveis para aventureiros iniciantes."],["Brem Greenguard","Guarda da Encosta","Elfo / Ranger Nv.5","Patrulha a floresta ao redor do vilarejo."]]},
+  {rank:7, nome:"Vau da Névoa",      pop:"1.900–2.400", area:"~11 km²", terreno:"Pântano / Névoa", racas:"Halflings",
+   geo:"Vilarejo halfling escondido em névoa permanente. Conhecidos por sua discrição.",
+   npcs:[["Tillo Mistborn","Ancião Halfling","Halfling / Ladino Nv.7","Líder não-oficial do vilarejo. Ninguém sabe sua idade real."]]},
+  {rank:8, nome:"Lastro",            pop:"1.800–2.300", area:"~20 km²", terreno:"Planície seca", racas:"Humanos",
+   geo:"Armazéns e estábulos para longas jornadas. Ponto logístico de caravanas.",
+   npcs:[["Gren Cartmaster","Prefeito das Caravanas","Humano / Ladino Nv.5","Administra armazéns e estábulos. Cobra pela estadia."],["Dorv Horseguard","Capitão dos Estábulos","Humano / Guerreiro Nv.4","Cuida dos cavalos e mantém a ordem."]]},
+  {rank:9, nome:"Palha e Pó",        pop:"1.700–2.100", area:"~18 km²", terreno:"Planície árida", racas:"Humanos",
+   geo:"Comunidade agrícola que sobrevive em solo pobre. Resistente e simples.",
+   npcs:[["Mern Dustfarmer","Ancião do Conselho","Humana / Clérigo Nv.4","Lidera o conselho de três anciãos. Pede chuva todo dia."]]},
+  {rank:10,nome:"Torrão Velho",      pop:"1.600–2.000", area:"~9 km²",  terreno:"Pedregosa defensiva", racas:"Anões, Humanos",
+   geo:"Construído sobre pedregulhos antigos. Pequeno mas bem-defendido.",
+   npcs:[["Brog Rockhold","Chefe do Torrão","Anão / Guerreiro Nv.6","Pequeno vilarejo bem-defendido. Brog já matou dois bandoleiros pessoalmente."]]},
+  {rank:11,nome:"Capim Branco",      pop:"1.500–1.900", area:"~22 km²", terreno:"Estepe de pastagem", racas:"Humanos, Halflings",
+   geo:"Criação de cavalos resistentes vendidos a aventureiros. Melhor negócio do vilarejo.",
+   npcs:[["Halla Grassborn","Pastora-Prefeita","Humana / Guerreira Nv.5","Cria cavalos resistentes vendidos a aventureiros."],["Trim Saddlecraft","Ferreiro e Seleiro","Halfling / Artesão Nv.6","Fabrica selas, ferraduras e equipamentos equestres."]]},
+  {rank:12,nome:"Muro Torto",        pop:"1.400–1.800", area:"~13 km²", terreno:"Planície fronteiriça", racas:"Humanos, Meio-Orcs",
+   geo:"Construído ao redor de muro de pedra irregular. Posição estratégica de fronteira.",
+   npcs:[["Grev Wallborn","Capitão do Muro","Humano / Guerreiro Nv.6","Comanda 12 guardas no muro. Mais simbólico que defensivo, mas leva a sério."],["Mira Crossroads","Prefeita de Fronteira","Meio-Orc / Ladina Nv.5","Media disputas entre os dois reinos limítrofes."]]},
+  {rank:13,nome:"Fosso Raso",        pop:"1.300–1.700", area:"~10 km²", terreno:"Pantanosa", racas:"Halflings, Humanos",
+   geo:"Construído ao redor de fosso natural. Tradição de armadilheiros e caçadores.",
+   npcs:[["Perrin Trapset","Mestre dos Armadilheiros","Halfling / Ladino Nv.7","O melhor armadilheiro da região. Vende serviços para guildas."]]},
+  {rank:14,nome:"Cruzeiro do Norte", pop:"1.200–1.600", area:"~17 km²", terreno:"Planície / Cruzamento", racas:"Humanos",
+   geo:"Entroncamento de estradas. Centro logístico para grupos que vão ao norte.",
+   npcs:[["Avel Northpost","Prefeito de Estrada","Humano / Guerreiro Nv.5","Administra o entroncamento e cobra pedágio moderado."],["Dona Signpost","Cartógrafa Local","Humana / Ladina Nv.4","Vende mapas — básicos mas honestos."]]},
+  {rank:15,nome:"Aldeia Três Lagos",  pop:"1.100–1.500", area:"~14 km²", terreno:"Lacustre / Temperada", racas:"Humanos, Elfos",
+   geo:"Rodeada por três pequenos lagos. Pesca, barcos e tradição oral rica.",
+   npcs:[["Elan Lakeborn","Conselheiro dos Lagos","Elfo / Druida Nv.6","Protege o equilíbrio dos três lagos. Proíbe pesca excessiva."],["Gory Oarmaster","Capitão dos Barcos","Humano / Guerreiro Nv.4","Opera transporte entre as ilhas dos lagos."]]},
+  {rank:16,nome:"Barreira Fria",     pop:"1.000–1.400", area:"~12 km²", terreno:"Montana nevada", racas:"Anões, Humanos",
+   geo:"Controla rota para o norte. Passagem de montanha. Cobra pedágio em épocas de nevasca.",
+   npcs:[["Brak Coldpass","Guarda-Chefe da Passagem","Anão / Guerreiro Nv.7","Controla quem passa pela rota do norte."]]},
+  {rank:17,nome:"Lombo do Anão",     pop:"900–1.200",   area:"~8 km²",  terreno:"Montanhosa exclusiva", racas:"Anões",
+   geo:"Exclusivamente anão. Pequena forja familiar e comércio de gemas.",
+   npcs:[["Duri Gemcutter","Patriarca da Família","Anão / Artesão Nv.8","Toda a família trabalha na forja. Duri decide tudo. A família é o vilarejo."]]},
+  {rank:18,nome:"Refúgio do Tronco", pop:"850–1.100",   area:"~9 km²",  terreno:"Florestal densa", racas:"Elfos, Humanos",
+   geo:"Construído dentro de árvores gigantes. Lugar de descanso para caçadores.",
+   npcs:[["Sylvra Treehold","Guardiã do Refúgio","Elfa / Ranger Nv.7","Decide quem descansa aqui. Caçadores e aventureiros são bem-vindos; lenhadores, não."]]},
+  {rank:19,nome:"Pó e Ouro",         pop:"800–1.100",   area:"~11 km²", terreno:"Desértica / Ruínas", racas:"Humanos, Meio-Orcs",
+   geo:"Alta rotatividade de aventureiros. Próximo a ruínas desérticas.",
+   npcs:[["Rekk Dustborn","Dono da Pousada","Meio-Orc / Ladino Nv.5","Opera a única pousada. Vende informações sobre ruínas locais por algumas moedas."],["Sel Sands","Guarda Contratado","Humano / Guerreiro Nv.5","Protege a pousada e os aventureiros hospedados. Por gorjeta."]]},
+  {rank:20,nome:"Aldeia sem Nome",   pop:"750–950",     area:"~7 km²",  terreno:"Isolada / Brumosa", racas:"Humanos",
+   geo:"Sem nome oficial. Habitantes desconfiam de forasteiros. Segredos antigos.",
+   npcs:[["??? (o Ancião)","Líder Anônimo","Humano / Desconhecido","Ninguém sabe o nome dele. Ninguém pergunta duas vezes."]]},
+  {rank:21,nome:"Carvalho Negro",    pop:"700–900",     area:"~10 km²", terreno:"Florestal / Sagrada", racas:"Humanos, Elfos",
+   geo:"Ao redor de um carvalho milenar de tronco negro. Considerado sagrado.",
+   npcs:[["Orn Blackoak","Guardião da Árvore","Elfo / Druida Nv.8","Dedica a vida a proteger o carvalho negro. Qualquer dano à árvore é crime capital."],["Brea Villagehold","Prefeita","Humana / Clérigo Nv.5","Administra o vilarejo ao redor da árvore sagrada."]]},
+  {rank:22,nome:"Remanso",           pop:"650–850",     area:"~12 km²", terreno:"Ribeirinha calma", racas:"Halflings, Humanos",
+   geo:"Vilarejo pacífico à beira de rio calmo. Afastado de conflitos e ruínas.",
+   npcs:[["Pip Quietwater","Prefeito Pacifista","Halfling / Bardo Nv.5","O vilarejo mais tranquilo de Danubia. Pip quer manter assim."]]},
+  {rank:23,nome:"Viela da Serra",    pop:"600–800",     area:"~8 km²",  terreno:"Serra rochosa", racas:"Anões, Humanos",
+   geo:"Encaixado em passagem de serra. Ponto de apoio para escaladores e mineradores.",
+   npcs:[["Gorv Narrowpass","Capitão do Passo","Anão / Guerreiro Nv.6","Controla a passagem de serra. Cobra por guia e proteção."]]},
+  {rank:24,nome:"Passagem dos Elfos",pop:"550–750",     area:"~9 km²",  terreno:"Florestal sagrada", racas:"Elfos",
+   geo:"Único acesso a territórios élficos profundos. Controlado por sentinelas élficos.",
+   npcs:[["Aelindra Gatewatch","Sentinela-Chefe","Elfa / Ranger Nv.10","Controla acesso a territórios élficos. Leva salvo-condutos muito a sério."],["Thel Borderguard","Segundo Sentinela","Elfo / Guerreiro Nv.8","Opera durante a noite enquanto Aelindra descansa."]]},
+  {rank:25,nome:"Cascalho",          pop:"500–700",     area:"~10 km²", terreno:"Ribeirinha pedregosa", racas:"Humanos",
+   geo:"Garimpagem de pedras preciosas no leito do rio. Comunidade de garimpeiros.",
+   npcs:[["Grev Stonewash","Mestre Garimpeiro","Humano / Ladino Nv.5","Coordena os garimpeiros. Sabe avaliar pedras preciosas a olho nu."]]},
+  {rank:26,nome:"Poço Fundo",        pop:"450–650",     area:"~9 km²",  terreno:"Planície árida", racas:"Humanos, Meio-Orcs",
+   geo:"Construído ao redor de poço artesiano profundo. Essencial em região seca.",
+   npcs:[["Dren Wellkeeper","Guardião do Poço","Humano / Clérigo Nv.6","O poço é a vida do vilarejo. Dren o protege como se fosse sagrado. Para ele, é."]]},
+  {rank:27,nome:"Fim da Estrada",    pop:"400–600",     area:"~8 km²",  terreno:"Fronteiriça / Isolada", racas:"Humanos",
+   geo:"O último vilarejo antes das terras selvagens. Base de aventureiros iniciantes.",
+   npcs:[["Vrak Lastpost","Prefeito do Fim","Meio-Orc / Guerreiro Nv.7","Viu mais aventureiros partir do que voltar. Continua aqui mesmo assim."],["Mel Lastchance","Dona da Taverna do Fim","Humana / Ladina Nv.5","Opera a última taverna antes das terras selvagens. Preços altos. Justificados."]]},
+  {rank:28,nome:"Beira do Abismo",   pop:"350–550",     area:"~7 km²",  terreno:"Precipício montanhoso", racas:"Humanos, Meio-Orcs",
+   geo:"Construído na borda de um abismo de 300m. Rota para ruínas subterrâneas abaixo.",
+   npcs:[["Gor Cliffborn","Mestre das Cordas","Meio-Orc / Ladino Nv.7","Fabrica e vende equipamento de escalada e descida. Única rota para as ruínas abaixo."]]},
+  {rank:29,nome:"Clareira dos Três", pop:"300–500",     area:"~10 km²", terreno:"Florestal aberta", racas:"Humanos, Elfos, Halflings",
+   geo:"Único vilarejo com três raças em harmonia estável. Modelo de coexistência.",
+   npcs:[["Trev Threepath","Prefeito Tri-Racial","Humano / Bardo Nv.6","Eleito pelas três raças. Símbolo de que a paz é possível."],["Aelis Fairleaf","Conselheira Élfica","Elfa / Druida Nv.5","Representa os elfos no conselho tripartite."],["Brug Stonehands","Conselheiro Anão","Anão / Artesão Nv.5","Representa os anões. Vota sempre pelo que beneficia os anões."]]},
+  {rank:30,nome:"Último Marco",      pop:"250–400",     area:"~6 km²",  terreno:"Planície fronteiriça", racas:"Humanos",
+   geo:"Marco de pedra milenar. Além: territórios não mapeados. Lista dos que não voltaram: longa.",
+   npcs:[["Ren Markstone","Guardião do Marco","Humano / Guerreiro Nv.6","Cuida do marco de pedra milenar. Registra todo aventureiro que passa para o desconhecido."],["Tiv Lastscribe","Escriba do Marco","Halfling / Ladino Nv.4","Anota os nomes. Mantém a lista dos que não voltaram. Lista longa."]]},
+];
+
+// ════════════════════════════ RENDER ════════════════════════════
+function makeNPCtable(npcs) {
+  let rows = npcs.map(n => `
+    <tr>
+      <td class="npc-name">${n[0]}</td>
+      <td class="npc-cargo">${n[1]}</td>
+      <td class="npc-class">${n[2]}</td>
+      <td class="npc-desc">${n[3]}</td>
+    </tr>`).join('');
+  return `<div class="npc-table-wrap">
+    <table class="npc-table">
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Raça / Classe</th><th>Descrição</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+function makeCard(d, showRank=true) {
+  return `<div class="card" data-search="${(d.nome+' '+d.racas+' '+d.terreno+' '+d.npcs.map(n=>n[0]+' '+n[1]).join(' ')).toLowerCase()}">
+    <div class="card-header">
+      ${showRank ? `<span class="card-rank">#${d.rank}</span>` : ''}
+      <span class="card-title">${d.nome}</span>
+    </div>
+    <div class="card-body">
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-label">População</div><div class="stat-value">${d.pop}</div></div>
+        <div class="stat-box"><div class="stat-label">Área</div><div class="stat-value">${d.area}</div></div>
+        <div class="stat-box"><div class="stat-label">Raças</div><div class="stat-value" style="font-size:.85rem">${d.racas}</div></div>
+      </div>
+      <div class="geo-text">${d.geo}</div>
+      <div class="npc-section-title">⚔ NPCs Principais</div>
+      ${makeNPCtable(d.npcs)}
+    </div>
+  </div>`;
+}
+
+function populateCidadesTable() {
+  const tbody = document.getElementById('tbody-cidades');
+  tbody.innerHTML = CIDADES.map(c => `<tr data-search="${(c.nome+' '+c.terreno+' '+c.racas).toLowerCase()}">
+    <td><span class="rank-badge">${c.rank}</span></td>
+    <td class="city-name-cell">${c.nome}</td>
+    <td>${c.pop}</td><td>${c.area}</td><td>${c.terreno}</td><td>${c.racas}</td>
+  </tr>`).join('');
+}
+
+function populateVilarejoTable() {
+  const tbody = document.getElementById('tbody-vilarejos');
+  tbody.innerHTML = VILAREJOS.map(v => `<tr data-search="${(v.nome+' '+v.terreno+' '+v.racas).toLowerCase()}">
+    <td><span class="rank-badge">${v.rank}</span></td>
+    <td class="city-name-cell">${v.nome}</td>
+    <td>${v.pop}</td><td>${v.area}</td><td>${v.terreno}</td><td>${v.racas}</td>
+  </tr>`).join('');
+}
+
+function populateCidadesCards() {
+  document.getElementById('grid-cidades').innerHTML = CIDADES.map(c => makeCard(c)).join('');
+}
+function populateVilarejoCards() {
+  document.getElementById('grid-vilarejos').innerHTML = VILAREJOS.map(v => makeCard(v)).join('');
+}
+
+// ════════════════════════════ CONTROLES ════════════════════════════
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+function filterTable(input, tableId) {
+  const q = input.value.toLowerCase();
+  document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
+    tr.style.display = tr.dataset.search.includes(q) ? '' : 'none';
+  });
+}
+
+function filterCards(input, gridId) {
+  const q = input.value.toLowerCase();
+  document.querySelectorAll(`#${gridId} .card`).forEach(c => {
+    c.style.display = c.dataset.search.includes(q) ? '' : 'none';
+  });
+}
+
+let currentTheme = 'parchment';
+function setTheme(btn) {
+  document.body.setAttribute('data-theme', btn.dataset.t);
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+let fontSize = 15;
+function changeFontSize(delta) {
+  fontSize = Math.min(22, Math.max(11, fontSize + delta));
+  document.documentElement.style.setProperty('--fs-base', fontSize + 'px');
+}
+
+// Scroll-to-top
+window.addEventListener('scroll', () => {
+  document.getElementById('to-top').classList.toggle('show', window.scrollY > 400);
+});
+
+// INIT
+populateCidadesTable();
+populateVilarejoTable();
+populateCidadesCards();
+populateVilarejoCards();
+</script>
+</body>
+</html>

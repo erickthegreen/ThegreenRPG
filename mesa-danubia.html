@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Danubia | Mapa e Masmorras</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="mesa-danubia.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-title">Danubia</div>
+        <div class="brand-subtitle">Mesa 5e</div>
+      </div>
+
+      <nav class="mode-tabs" aria-label="Modos da ferramenta">
+        <button class="mode-tab active" type="button" data-mode="map">Mapa</button>
+        <button class="mode-tab" type="button" data-mode="city">Cidade</button>
+        <button class="mode-tab" type="button" data-mode="dungeon">Masmorras</button>
+        <a class="mode-link" href="index.html">Compendio</a>
+      </nav>
+
+      <div class="save-status" id="saveStatus">Salvo localmente</div>
+    </header>
+
+    <main class="workspace">
+      <aside class="side-panel left-panel" data-panel="map">
+        <section class="control-section">
+          <div class="section-title">Mapa Detalhado de Tibia</div>
+          <div class="button-row">
+            <button type="button" id="mapFitBtn">Ajustar</button>
+            <button type="button" id="mapZoomInBtn">+</button>
+            <button type="button" id="mapZoomOutBtn">-</button>
+          </div>
+          <div class="button-row">
+            <button type="button" id="mapDownloadBtn">Baixar PNG</button>
+            <button type="button" id="mapResetBtn">Resetar</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Ferramenta</div>
+          <div class="segmented" role="group" aria-label="Ferramenta do mapa">
+            <button type="button" class="active" data-map-tool="pan">Mover</button>
+            <button type="button" data-map-tool="ruler">Regua</button>
+            <button type="button" data-map-tool="marker">Marco</button>
+            <button type="button" data-map-tool="paint">Pintar</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Escala Global</div>
+          <label class="field-label" for="mapFloor">Andar</label>
+          <select id="mapFloor">
+            <option value="0">0 - Muito alto</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7" selected>7 - Chao</option>
+            <option value="8">8 - Subsolo 1</option>
+            <option value="9">9 - Subsolo 2</option>
+            <option value="10">10 - Subsolo 3</option>
+            <option value="11">11 - Subsolo 4</option>
+            <option value="12">12 - Subsolo 5</option>
+            <option value="13">13 - Subsolo 6</option>
+            <option value="14">14 - Subsolo 7</option>
+            <option value="15">15 - Profundo</option>
+          </select>
+
+          <label class="field-label" for="mapGridPx">Tiles por quadrado visual</label>
+          <input id="mapGridPx" type="number" min="16" max="512" step="8" value="64" />
+
+          <label class="field-label" for="mapMetersTile">Metros por tile</label>
+          <input id="mapMetersTile" type="number" min="0.5" max="30" step="0.5" value="1.5" />
+
+          <label class="field-label" for="partySpeed">Ritmo do grupo km/dia</label>
+          <input id="partySpeed" type="number" min="6" max="80" step="1" value="38" />
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Escala Urbana</div>
+          <label class="field-label" for="cityPopulation">Populacao de referencia</label>
+          <input id="cityPopulation" type="number" min="100" max="5000000" step="100" value="273110" />
+
+          <label class="field-label" for="cityDensity">Densidade hab/km²</label>
+          <input id="cityDensity" type="number" min="10" max="50000" step="0.01" value="199.49" />
+
+          <label class="field-label" for="cityAreaOverride">Area urbana planejada km²</label>
+          <input id="cityAreaOverride" type="number" min="0" max="2000" step="0.1" value="35" />
+
+          <label class="check-row"><input id="showCityFootprint" type="checkbox" checked /> Mostrar area no mapa</label>
+          <div id="cityScaleReadout" class="scale-output"></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Pintura do Mapa</div>
+          <label class="field-label" for="mapPaintMode">Acao</label>
+          <select id="mapPaintMode">
+            <option value="paint">Pintar</option>
+            <option value="erase">Apagar pintura</option>
+          </select>
+
+          <label class="field-label" for="mapPaintColor">Cor</label>
+          <input id="mapPaintColor" type="color" value="#3f6d3f" />
+
+          <label class="field-label" for="mapPaintSize">Tamanho do pincel em tiles</label>
+          <input id="mapPaintSize" type="number" min="1" max="96" step="1" value="8" />
+
+          <label class="field-label" for="mapPaintOpacity">Opacidade</label>
+          <input id="mapPaintOpacity" type="range" min="0.1" max="1" step="0.05" value="0.8" />
+
+          <div class="button-row">
+            <button type="button" id="mapUndoBtn">Desfazer</button>
+            <button type="button" id="mapRedoBtn">Refazer</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Camadas</div>
+          <label class="check-row"><input id="showMapGrid" type="checkbox" checked /> Grid</label>
+          <label class="check-row"><input id="showMapRoutes" type="checkbox" checked /> Rotas</label>
+          <label class="check-row"><input id="showMapMarkers" type="checkbox" checked /> Marcadores</label>
+          <label class="check-row"><input id="showTibiaMarkers" type="checkbox" checked /> Marcadores TibiaMaps</label>
+          <label class="check-row"><input id="showMapLabels" type="checkbox" checked /> Nomes</label>
+          <label class="check-row"><input id="showMapScale" type="checkbox" checked /> Barra de escala</label>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Novo Marco de Campanha</div>
+          <label class="field-label" for="newMarkerName">Nome</label>
+          <input id="newMarkerName" type="text" value="Ponto de Interesse" maxlength="40" />
+
+          <label class="field-label" for="newMarkerType">Tipo</label>
+          <select id="newMarkerType">
+            <option value="Cidade">Cidade</option>
+            <option value="Vilarejo">Vilarejo</option>
+            <option value="Masmorra">Masmorra</option>
+            <option value="Ruina">Ruina</option>
+            <option value="Perigo">Perigo</option>
+            <option value="Anotacao">Anotacao</option>
+          </select>
+
+          <label class="field-label" for="newMarkerNote">Nota</label>
+          <textarea id="newMarkerNote" rows="4">Gancho de aventura.</textarea>
+        </section>
+
+        <section class="control-section marker-list-section">
+          <div class="section-title">Locais</div>
+          <input id="markerSearch" class="search-input" type="search" placeholder="Buscar local" />
+          <div id="markerList" class="marker-list"></div>
+        </section>
+      </aside>
+
+      <aside class="side-panel left-panel is-hidden" data-panel="dungeon">
+        <section class="control-section">
+          <div class="section-title">Arquivo</div>
+          <div class="grid-two">
+            <label>
+              Largura
+              <input id="dungeonWidth" type="number" min="5" max="120" value="30" />
+            </label>
+            <label>
+              Altura
+              <input id="dungeonHeight" type="number" min="5" max="120" value="22" />
+            </label>
+          </div>
+          <div class="button-row">
+            <button type="button" id="newDungeonBtn">Novo</button>
+            <button type="button" id="undoDungeonBtn">Desfazer</button>
+          </div>
+          <div class="button-row">
+            <button type="button" id="saveDungeonJsonBtn">Salvar JSON</button>
+            <button type="button" id="loadDungeonJsonBtn">Abrir JSON</button>
+            <input id="loadDungeonFile" type="file" accept="application/json,.json" hidden />
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Ferramenta</div>
+          <div class="segmented multi" role="group" aria-label="Ferramenta de masmorra">
+            <button type="button" class="active" data-dungeon-mode="paint">Pincel</button>
+            <button type="button" data-dungeon-mode="room">Sala</button>
+            <button type="button" data-dungeon-mode="corridor">Corredor</button>
+            <button type="button" data-dungeon-mode="label">Texto</button>
+            <button type="button" data-dungeon-mode="pan">Mover</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Terreno</div>
+          <div class="tile-palette" id="tilePalette"></div>
+          <label class="field-label" for="brushSize">Tamanho do pincel</label>
+          <input id="brushSize" type="range" min="1" max="5" value="1" />
+
+          <label class="field-label" for="labelText">Texto para etiqueta</label>
+          <input id="labelText" type="text" value="Sala" maxlength="26" />
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Visual</div>
+          <label class="check-row"><input id="showDungeonGrid" type="checkbox" checked /> Grid</label>
+          <label class="check-row"><input id="showDungeonLabels" type="checkbox" checked /> Etiquetas</label>
+          <label class="check-row"><input id="showDungeonSecrets" type="checkbox" checked /> Segredos do mestre</label>
+          <div class="button-row">
+            <button type="button" id="fitDungeonBtn">Ajustar</button>
+            <button type="button" id="clearDungeonBtn">Limpar</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Exportar</div>
+          <label class="field-label" for="exportCellSize">Pixels por quadrado no PNG</label>
+          <input id="exportCellSize" type="number" min="32" max="180" step="2" value="70" />
+          <div class="button-row">
+            <button type="button" id="downloadDungeonBtn">PNG Mestre</button>
+            <button type="button" id="downloadPlayerDungeonBtn">PNG Jogadores</button>
+          </div>
+        </section>
+      </aside>
+
+      <aside class="side-panel left-panel is-hidden" data-panel="city">
+        <section class="control-section">
+          <div class="section-title">Mapa Urbano</div>
+          <label class="field-label" for="cityMapName">Nome</label>
+          <input id="cityMapName" type="text" value="Thais" maxlength="40" />
+
+          <div class="grid-two">
+            <label>
+              Populacao
+              <input id="cityMapPopulation" type="number" min="1000" max="1000000" step="1000" value="273110" />
+            </label>
+            <label>
+              Area km²
+              <input id="cityMapArea" type="number" min="1" max="300" step="0.5" value="35" />
+            </label>
+          </div>
+
+          <label class="field-label" for="cityMapSeed">Semente</label>
+          <input id="cityMapSeed" type="text" value="thais-273110" maxlength="40" />
+
+          <div class="button-row">
+            <button type="button" id="generateCityBtn">Gerar</button>
+            <button type="button" id="fitCityBtn">Ajustar</button>
+          </div>
+          <div class="button-row">
+            <button type="button" id="downloadCityBtn">Baixar PNG</button>
+            <button type="button" id="randomCitySeedBtn">Nova semente</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Conteudo</div>
+          <label class="check-row"><input id="showCityGrid" type="checkbox" /> Grid de escala</label>
+          <label class="check-row"><input id="showCityWalls" type="checkbox" checked /> Muralhas e portoes</label>
+          <label class="check-row"><input id="showCityBuildings" type="checkbox" checked /> Construcoes</label>
+          <label class="check-row"><input id="showCityMarkers" type="checkbox" checked /> Marcadores</label>
+          <label class="check-row"><input id="showCityMarkerLabels" type="checkbox" /> Nomes dos marcos</label>
+          <label class="check-row"><input id="showCityDistrictLabels" type="checkbox" /> Nomes dos bairros</label>
+          <label class="check-row"><input id="showCityFields" type="checkbox" checked /> Arredores rurais</label>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Escala</div>
+          <label class="field-label" for="cityGridMeters">Grid em metros</label>
+          <input id="cityGridMeters" type="number" min="50" max="1000" step="50" value="250" />
+
+          <label class="field-label" for="cityExportWidth">Largura do PNG</label>
+          <input id="cityExportWidth" type="number" min="1600" max="8000" step="200" value="3600" />
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Edicao Manual</div>
+          <div class="segmented multi" role="group" aria-label="Ferramenta urbana">
+            <button type="button" class="active" data-city-tool="pan">Mover</button>
+            <button type="button" data-city-tool="terrain">Terreno</button>
+            <button type="button" data-city-tool="building">Casa</button>
+            <button type="button" data-city-tool="road">Estrada</button>
+            <button type="button" data-city-tool="marker">Marco</button>
+            <button type="button" data-city-tool="erase">Apagar</button>
+          </div>
+
+          <label class="field-label" for="cityTerrainKind">Terreno</label>
+          <select id="cityTerrainKind">
+            <option value="grass">Grama</option>
+            <option value="forest">Floresta</option>
+            <option value="field">Campo agricola</option>
+            <option value="water">Agua</option>
+            <option value="sand">Areia</option>
+            <option value="stone">Pedra</option>
+            <option value="plaza">Praca</option>
+          </select>
+
+          <label class="field-label" for="cityBuildingKind">Construcao</label>
+          <select id="cityBuildingKind">
+            <option value="house">Casa</option>
+            <option value="noble">Mansao</option>
+            <option value="warehouse">Armazem</option>
+            <option value="temple">Templo</option>
+            <option value="tower">Torre</option>
+            <option value="ruin">Ruina</option>
+          </select>
+
+          <div class="grid-two">
+            <label>
+              Pincel m
+              <input id="cityBrushMeters" type="number" min="5" max="500" step="5" value="80" />
+            </label>
+            <label>
+              Estrada m
+              <input id="cityRoadWidth" type="number" min="4" max="120" step="2" value="18" />
+            </label>
+          </div>
+
+          <label class="field-label" for="cityMarkerName">Nome do marco</label>
+          <input id="cityMarkerName" type="text" value="Novo ponto" maxlength="36" />
+
+          <label class="field-label" for="cityMarkerType">Tipo do marco</label>
+          <select id="cityMarkerType">
+            <option value="Ponto">Ponto</option>
+            <option value="Taverna">Taverna</option>
+            <option value="Loja">Loja</option>
+            <option value="Templo">Templo</option>
+            <option value="Guarda">Guarda</option>
+            <option value="Masmorra">Masmorra</option>
+            <option value="Tesouro">Tesouro</option>
+            <option value="Perigo">Perigo</option>
+          </select>
+
+          <div class="button-row">
+            <button type="button" id="cityUndoBtn">Desfazer</button>
+            <button type="button" id="cityRedoBtn">Refazer</button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="stage">
+        <div class="canvas-frame active" id="mapFrame">
+          <canvas id="mapCanvas"></canvas>
+        </div>
+        <div class="canvas-frame" id="dungeonFrame">
+          <canvas id="dungeonCanvas"></canvas>
+        </div>
+        <div class="canvas-frame" id="cityFrame">
+          <canvas id="cityCanvas"></canvas>
+        </div>
+      </section>
+
+      <aside class="side-panel right-panel">
+        <section class="info-section" data-info="map">
+          <div class="section-title">Leitura do Mapa</div>
+          <div class="metric-grid">
+            <div>
+              <span>Escala</span>
+              <strong id="mapScaleReadout">24 km</strong>
+            </div>
+            <div>
+              <span>Zoom</span>
+              <strong id="mapZoomReadout">100%</strong>
+            </div>
+            <div>
+              <span>Regua</span>
+              <strong id="rulerReadout">--</strong>
+            </div>
+            <div>
+              <span>Viagem</span>
+              <strong id="travelReadout">--</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="info-section" data-info="map">
+          <div class="section-title">Selecionado</div>
+          <div id="selectedMarker" class="selected-marker">
+            <div class="empty-state">Clique em um marcador do mapa.</div>
+          </div>
+        </section>
+
+        <section class="info-section asset-strip" data-info="map">
+          <div class="section-title">Referencias</div>
+          <div class="source-note">
+            O mapa detalhado usa os PNGs publicos do projeto TibiaMaps. O andar 7 e o chao, o mesmo ponto do link que voce mandou para Thais.
+          </div>
+          <a class="source-link" href="https://tibiamaps.github.io/tibia-map-data/floor-07-map.png" target="_blank" rel="noreferrer">Abrir PNG do andar 7</a>
+        </section>
+
+        <section class="info-section is-hidden" data-info="dungeon">
+          <div class="section-title">Masmorra</div>
+          <div class="metric-grid">
+            <div>
+              <span>Tamanho</span>
+              <strong id="dungeonSizeReadout">30 x 22</strong>
+            </div>
+            <div>
+              <span>Ferramenta</span>
+              <strong id="dungeonModeReadout">Pincel</strong>
+            </div>
+            <div>
+              <span>Terreno</span>
+              <strong id="dungeonTileReadout">Piso</strong>
+            </div>
+            <div>
+              <span>PNG</span>
+              <strong id="dungeonExportReadout">2100 x 1540</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="dungeon">
+          <div class="section-title">Legenda</div>
+          <div id="tileLegend" class="tile-legend"></div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="dungeon">
+          <div class="section-title">Etiquetas</div>
+          <div id="labelList" class="label-list">
+            <div class="empty-state">Nenhuma etiqueta.</div>
+          </div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="city">
+          <div class="section-title">Cidade</div>
+          <div class="metric-grid">
+            <div>
+              <span>Area</span>
+              <strong id="cityAreaReadout">35 km²</strong>
+            </div>
+            <div>
+              <span>Dimensao</span>
+              <strong id="cityDimensionReadout">--</strong>
+            </div>
+            <div>
+              <span>Populacao</span>
+              <strong id="cityPopulationReadout">273.110</strong>
+            </div>
+            <div>
+              <span>Densidade</span>
+              <strong id="cityDensityReadout">--</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="city">
+          <div class="section-title">Distritos</div>
+          <div id="cityDistrictList" class="label-list"></div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="city">
+          <div class="section-title">Edicao</div>
+          <div class="metric-grid">
+            <div>
+              <span>Terrenos</span>
+              <strong id="cityManualTerrainReadout">0</strong>
+            </div>
+            <div>
+              <span>Casas</span>
+              <strong id="cityManualBuildingsReadout">0</strong>
+            </div>
+            <div>
+              <span>Estradas</span>
+              <strong id="cityManualRoadsReadout">0</strong>
+            </div>
+            <div>
+              <span>Marcos</span>
+              <strong id="cityManualMarkersReadout">0</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="city">
+          <div class="section-title">Pontos</div>
+          <div id="cityMarkerList" class="label-list"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="mesa-danubia.js"></script>
+</body>
+</html>
