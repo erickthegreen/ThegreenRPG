@@ -5,6 +5,10 @@
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const STORAGE_KEY = "danubia-mesa-tools-v1";
+  const DUNGEON_MAX_SIZE = 500;
+  const DUNGEON_EXPORT_MIN_CELL = 8;
+  const DUNGEON_EXPORT_MAX_CELL = 180;
+  const DUNGEON_EXPORT_MAX_SIDE = 8192;
 
   const assets = {
     mapBase: "https://tibiamaps.github.io/tibia-map-data",
@@ -78,8 +82,10 @@
     view: { x: 0, y: 0, scale: 1 },
     dragging: false,
     painting: false,
+    cropping: false,
     dragStart: null,
     currentStroke: null,
+    crop: persisted.map?.crop || null,
     selectedId: null,
     ruler: { start: null, end: null },
     customMarkers: persisted.map?.customMarkers || [],
@@ -97,6 +103,7 @@
       paintColor: persisted.map?.settings?.paintColor || "#3f6d3f",
       paintSize: persisted.map?.settings?.paintSize || 8,
       paintOpacity: persisted.map?.settings?.paintOpacity || 0.8,
+      importMaxSize: persisted.map?.settings?.importMaxSize || 240,
       showGrid: persisted.map?.settings?.showGrid ?? true,
       showRoutes: persisted.map?.settings?.showRoutes ?? true,
       showMarkers: persisted.map?.settings?.showMarkers ?? true,
@@ -133,11 +140,15 @@
     undo: [],
     redo: [],
     settings: {
-      styleVersion: 2,
+      styleVersion: 3,
       name: persisted.city?.settings?.name || "Thais",
       population: persisted.city?.settings?.population || 273110,
       areaKm2: persisted.city?.settings?.areaKm2 || 35,
       seed: persisted.city?.settings?.seed || "thais-273110",
+      visualStyle: persisted.city?.settings?.visualStyle || "green",
+      densityMode: persisted.city?.settings?.densityMode || "high",
+      labelMode: persisted.city?.settings?.labelMode || "clean",
+      buildingMode: persisted.city?.settings?.buildingMode || "symbols",
       gridMeters: persisted.city?.settings?.gridMeters || 250,
       exportWidth: persisted.city?.settings?.exportWidth || 3600,
       tool: persisted.city?.settings?.tool || "pan",
@@ -150,9 +161,10 @@
       showGrid: persisted.city?.settings?.styleVersion === 2 ? persisted.city?.settings?.showGrid ?? false : false,
       showWalls: persisted.city?.settings?.showWalls ?? true,
       showBuildings: persisted.city?.settings?.showBuildings ?? true,
+      showWater: persisted.city?.settings?.showWater ?? true,
       showMarkers: persisted.city?.settings?.styleVersion === 2 ? persisted.city?.settings?.showMarkers ?? true : true,
       showMarkerLabels: persisted.city?.settings?.styleVersion === 2 ? persisted.city?.settings?.showMarkerLabels ?? false : false,
-      showDistrictLabels: persisted.city?.settings?.styleVersion === 2 ? persisted.city?.settings?.showDistrictLabels ?? false : false,
+      showDistrictLabels: persisted.city?.settings?.showDistrictLabels ?? true,
       showFields: persisted.city?.settings?.showFields ?? true,
     },
     data: persisted.city?.data || null,
@@ -172,7 +184,7 @@
     syncCityInputs();
     renderMarkerList();
     renderLabelList();
-    if (!cityState.data) generateCity();
+    if (!cityState.data || cityState.data.mapVersion !== 3) generateCity();
     else {
       ensureCityManual(cityState.data);
       renderCityLists();
@@ -239,6 +251,13 @@
     $("#mapZoomOutBtn").addEventListener("click", () => zoomMap(0.84));
     $("#mapUndoBtn").addEventListener("click", undoMapEdit);
     $("#mapRedoBtn").addEventListener("click", redoMapEdit);
+    $("#sendCropDungeonBtn").addEventListener("click", sendMapCropToDungeon);
+    $("#clearMapCropBtn").addEventListener("click", () => {
+      mapState.crop = null;
+      persistSoon();
+      updateMapCropReadout();
+      renderMap();
+    });
     $("#mapResetBtn").addEventListener("click", () => {
       mapState.ruler = { start: null, end: null };
       mapState.selectedId = null;
@@ -280,10 +299,12 @@
       ["#cityAreaOverride", "cityAreaOverride", Number],
       ["#mapPaintSize", "paintSize", Number],
       ["#mapPaintOpacity", "paintOpacity", Number],
+      ["#mapImportMaxSize", "importMaxSize", Number],
     ].forEach(([selector, key, parser]) => {
       $(selector).addEventListener("input", (event) => {
         mapState.settings[key] = parser(event.target.value);
         persistSoon();
+        updateMapCropReadout();
         renderMap();
       });
     });
@@ -339,8 +360,8 @@
 
   function bindDungeonControls() {
     $("#newDungeonBtn").addEventListener("click", () => {
-      const width = clamp(parseInt($("#dungeonWidth").value, 10) || 30, 5, 120);
-      const height = clamp(parseInt($("#dungeonHeight").value, 10) || 22, 5, 120);
+      const width = clamp(parseInt($("#dungeonWidth").value, 10) || 30, 5, DUNGEON_MAX_SIZE);
+      const height = clamp(parseInt($("#dungeonHeight").value, 10) || 22, 5, DUNGEON_MAX_SIZE);
       pushDungeonUndo();
       dungeonState.data = createDungeon(width, height);
       fitDungeon();
@@ -393,7 +414,7 @@
       renderDungeon();
     });
     $("#exportCellSize").addEventListener("input", (event) => {
-      dungeonState.exportCellSize = clamp(parseInt(event.target.value, 10) || 70, 32, 180);
+      dungeonState.exportCellSize = clamp(parseInt(event.target.value, 10) || 70, DUNGEON_EXPORT_MIN_CELL, DUNGEON_EXPORT_MAX_CELL);
       persistSoon();
       updateDungeonReadouts();
     });
@@ -447,6 +468,10 @@
       "#cityMapPopulation",
       "#cityMapArea",
       "#cityMapSeed",
+      "#cityVisualStyle",
+      "#cityDensityMode",
+      "#cityLabelMode",
+      "#cityBuildingMode",
       "#cityGridMeters",
       "#cityExportWidth",
       "#cityBrushMeters",
@@ -460,10 +485,11 @@
       });
     });
 
-    ["#cityTerrainKind", "#cityBuildingKind", "#cityMarkerType"].forEach((selector) => {
+    ["#cityTerrainKind", "#cityBuildingKind", "#cityMarkerType", "#cityVisualStyle", "#cityDensityMode", "#cityLabelMode", "#cityBuildingMode"].forEach((selector) => {
       $(selector).addEventListener("change", () => {
         readCitySettings();
         persistSoon();
+        renderCity();
       });
     });
 
@@ -471,6 +497,7 @@
       ["#showCityGrid", "showGrid"],
       ["#showCityWalls", "showWalls"],
       ["#showCityBuildings", "showBuildings"],
+      ["#showCityWater", "showWater"],
       ["#showCityMarkers", "showMarkers"],
       ["#showCityMarkerLabels", "showMarkerLabels"],
       ["#showCityDistrictLabels", "showDistrictLabels"],
@@ -495,6 +522,10 @@
     $("#cityMapPopulation").value = cityState.settings.population;
     $("#cityMapArea").value = cityState.settings.areaKm2;
     $("#cityMapSeed").value = cityState.settings.seed;
+    $("#cityVisualStyle").value = cityState.settings.visualStyle;
+    $("#cityDensityMode").value = cityState.settings.densityMode;
+    $("#cityLabelMode").value = cityState.settings.labelMode;
+    $("#cityBuildingMode").value = cityState.settings.buildingMode;
     $("#cityGridMeters").value = cityState.settings.gridMeters;
     $("#cityExportWidth").value = cityState.settings.exportWidth;
     $("#cityTerrainKind").value = cityState.settings.terrainKind;
@@ -507,6 +538,7 @@
     $("#showCityGrid").checked = cityState.settings.showGrid;
     $("#showCityWalls").checked = cityState.settings.showWalls;
     $("#showCityBuildings").checked = cityState.settings.showBuildings;
+    $("#showCityWater").checked = cityState.settings.showWater;
     $("#showCityMarkers").checked = cityState.settings.showMarkers;
     $("#showCityMarkerLabels").checked = cityState.settings.showMarkerLabels;
     $("#showCityDistrictLabels").checked = cityState.settings.showDistrictLabels;
@@ -518,6 +550,10 @@
     cityState.settings.population = clamp(parseInt($("#cityMapPopulation").value, 10) || 10000, 1000, 1000000);
     cityState.settings.areaKm2 = clamp(Number($("#cityMapArea").value) || 10, 1, 300);
     cityState.settings.seed = $("#cityMapSeed").value.trim() || cityState.settings.name;
+    cityState.settings.visualStyle = $("#cityVisualStyle").value;
+    cityState.settings.densityMode = $("#cityDensityMode").value;
+    cityState.settings.labelMode = $("#cityLabelMode").value;
+    cityState.settings.buildingMode = $("#cityBuildingMode").value;
     cityState.settings.gridMeters = clamp(parseInt($("#cityGridMeters").value, 10) || 250, 50, 1000);
     cityState.settings.exportWidth = clamp(parseInt($("#cityExportWidth").value, 10) || 3600, 1600, 8000);
     cityState.settings.terrainKind = $("#cityTerrainKind").value;
@@ -541,12 +577,14 @@
     $("#mapPaintColor").value = mapState.settings.paintColor;
     $("#mapPaintSize").value = mapState.settings.paintSize;
     $("#mapPaintOpacity").value = mapState.settings.paintOpacity;
+    $("#mapImportMaxSize").value = mapState.settings.importMaxSize;
     $("#showMapGrid").checked = mapState.settings.showGrid;
     $("#showMapRoutes").checked = mapState.settings.showRoutes;
     $("#showMapMarkers").checked = mapState.settings.showMarkers;
     $("#showTibiaMarkers").checked = mapState.settings.showTibiaMarkers;
     $("#showMapLabels").checked = mapState.settings.showLabels;
     $("#showMapScale").checked = mapState.settings.showScale;
+    updateMapCropReadout();
   }
 
   function syncDungeonInputs() {
@@ -642,6 +680,7 @@
 
     if (mapState.settings.showCityFootprint) drawCityFootprintScreen(mapCtx);
     if (mapState.settings.showGrid) drawMapGridScreen(mapCtx);
+    drawMapCropScreen(mapCtx);
     if (mapState.settings.showRoutes) drawRoutesScreen(mapCtx);
     if (mapState.settings.showMarkers) drawMarkersScreen(mapCtx);
     if (mapState.ruler.start) drawRulerScreen(mapCtx);
@@ -754,6 +793,31 @@
       ctx.lineTo(view.x + mapImage.width * view.scale, sy);
       ctx.stroke();
     }
+    ctx.restore();
+  }
+
+  function drawMapCropScreen(ctx) {
+    const crop = normalizedMapCrop();
+    if (!crop) return;
+    const a = mapImageToScreen({ x: crop.x, y: crop.y });
+    const b = mapImageToScreen({ x: crop.x + crop.w, y: crop.y + crop.h });
+    ctx.save();
+    ctx.fillStyle = "rgba(255, 224, 161, 0.12)";
+    ctx.strokeStyle = "rgba(255, 224, 161, 0.95)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 6]);
+    ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+    ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+    ctx.setLineDash([]);
+    ctx.font = "700 13px Georgia";
+    const importSize = importSizeForCrop(crop);
+    const label = `${Math.round(crop.w)} x ${Math.round(crop.h)} -> ${importSize.width} x ${importSize.height}`;
+    const width = ctx.measureText(label).width + 16;
+    roundedRect(ctx, a.x + 8, a.y + 8, width, 24, 5);
+    ctx.fillStyle = "rgba(24, 19, 14, 0.88)";
+    ctx.fill();
+    ctx.fillStyle = "#ffe0a1";
+    ctx.fillText(label, a.x + 16, a.y + 25);
     ctx.restore();
   }
 
@@ -912,7 +976,7 @@
     const imagePoint = screenToMapImage(screenPoint);
     const hit = hitTestMarker(screenPoint);
 
-    if (hit && mapState.tool !== "marker" && mapState.tool !== "paint") {
+    if (hit && mapState.tool !== "marker" && mapState.tool !== "paint" && mapState.tool !== "crop") {
       selectMarker(hit.id, false);
       return;
     }
@@ -937,6 +1001,11 @@
       return;
     }
 
+    if (mapState.tool === "crop") {
+      if (isInsideMap(imagePoint)) startMapCrop(imagePoint);
+      return;
+    }
+
     mapState.dragging = true;
     mapState.dragStart = {
       point: screenPoint,
@@ -957,6 +1026,10 @@
       continueMapPaint(screenToMapImage(screenPoint));
       return;
     }
+    if (mapState.cropping && mapState.tool === "crop") {
+      continueMapCrop(screenToMapImage(screenPoint));
+      return;
+    }
     if (!mapState.dragging || !mapState.dragStart) return;
     const dx = screenPoint.x - mapState.dragStart.point.x;
     const dy = screenPoint.y - mapState.dragStart.point.y;
@@ -969,8 +1042,38 @@
     if (mapCanvas.hasPointerCapture(event.pointerId)) mapCanvas.releasePointerCapture(event.pointerId);
     if (mapState.dragging) persistSoon();
     if (mapState.painting) finishMapPaint();
+    if (mapState.cropping) finishMapCrop();
     mapState.dragging = false;
     mapState.dragStart = null;
+  }
+
+  function startMapCrop(point) {
+    mapState.cropping = true;
+    const p = clampMapPoint(point);
+    mapState.crop = { start: p, end: p, floor: mapState.floor };
+    updateMapCropReadout();
+    renderMap();
+  }
+
+  function continueMapCrop(point) {
+    if (!mapState.crop) return;
+    mapState.crop.end = clampMapPoint(point);
+    updateMapCropReadout();
+    renderMap();
+  }
+
+  function finishMapCrop() {
+    mapState.cropping = false;
+    if (normalizedMapCrop()) persistSoon();
+    updateMapCropReadout();
+    renderMap();
+  }
+
+  function clampMapPoint(point) {
+    return {
+      x: Math.round(clamp(point.x, 0, mapImage.width)),
+      y: Math.round(clamp(point.y, 0, mapImage.height)),
+    };
   }
 
   function startMapPaint(point) {
@@ -1037,6 +1140,100 @@
     mapEditCacheDirty = true;
     persistSoon();
     renderMap();
+  }
+
+  function normalizedMapCrop() {
+    const crop = mapState.crop;
+    if (!crop || crop.floor !== mapState.floor || !crop.start || !crop.end) return null;
+    const x1 = clamp(Math.min(crop.start.x, crop.end.x), 0, mapImage.width);
+    const y1 = clamp(Math.min(crop.start.y, crop.end.y), 0, mapImage.height);
+    const x2 = clamp(Math.max(crop.start.x, crop.end.x), 0, mapImage.width);
+    const y2 = clamp(Math.max(crop.start.y, crop.end.y), 0, mapImage.height);
+    const w = Math.round(x2 - x1);
+    const h = Math.round(y2 - y1);
+    if (w < 2 || h < 2) return null;
+    return { x: Math.round(x1), y: Math.round(y1), w, h, floor: mapState.floor };
+  }
+
+  function importSizeForCrop(crop) {
+    const maxSide = clamp(Number(mapState.settings.importMaxSize) || 240, 20, 500);
+    const scale = Math.min(1, maxSide / Math.max(crop.w, crop.h));
+    return {
+      width: clamp(Math.max(2, Math.round(crop.w * scale)), 2, 500),
+      height: clamp(Math.max(2, Math.round(crop.h * scale)), 2, 500),
+      scale,
+    };
+  }
+
+  function updateMapCropReadout() {
+    const target = $("#mapCropReadout");
+    if (!target) return;
+    const crop = normalizedMapCrop();
+    if (!crop) {
+      target.innerHTML = `<span>Use a ferramenta <strong>Recorte</strong> e arraste no mapa.</span>`;
+      return;
+    }
+    const size = importSizeForCrop(crop);
+    target.innerHTML = `
+      <span>Recorte: <strong>${crop.w} x ${crop.h}</strong> tiles do Tibia</span>
+      <span>Masmorra: <strong>${size.width} x ${size.height}</strong> quadrados</span>
+      <span>Andar: <strong>${crop.floor}</strong></span>
+    `;
+  }
+
+  function sendMapCropToDungeon() {
+    const crop = normalizedMapCrop();
+    if (!crop || !mapState.ready) return;
+    const size = importSizeForCrop(crop);
+    const offscreen = document.createElement("canvas");
+    offscreen.width = size.width;
+    offscreen.height = size.height;
+    const ctx = offscreen.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(mapImage, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
+    rebuildMapEditCacheIfNeeded();
+    ctx.drawImage(mapEditCache, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
+    const imageData = ctx.getImageData(0, 0, size.width, size.height).data;
+    const dungeon = createDungeon(size.width, size.height);
+    for (let y = 0; y < size.height; y += 1) {
+      for (let x = 0; x < size.width; x += 1) {
+        const offset = (y * size.width + x) * 4;
+        dungeon.cells[y * size.width + x] = tibiaPixelToDungeonTile(
+          imageData[offset],
+          imageData[offset + 1],
+          imageData[offset + 2],
+          imageData[offset + 3]
+        );
+      }
+    }
+    dungeon.labels.push({
+      id: `crop-label-${Date.now()}`,
+      x: 1,
+      y: 1,
+      text: `Tibia z${crop.floor}`,
+      secret: true,
+    });
+    dungeonState.data = dungeon;
+    dungeonState.undo = [];
+    syncDungeonInputs();
+    setActiveMode("dungeon", true);
+    requestAnimationFrame(fitDungeon);
+    persistSoon();
+  }
+
+  function tibiaPixelToDungeonTile(r, g, b, a) {
+    if (a < 20) return "empty";
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max < 18) return "empty";
+    if (b > r + 20 && b > g + 8) return "water";
+    if (r > 180 && g < 110 && b < 80) return "lava";
+    if (g > 120 && r < 110 && b < 110) return "rough";
+    if (Math.abs(r - g) < 18 && Math.abs(g - b) < 18) return max > 120 ? "floor" : "wall";
+    if (r > 120 && g > 70 && g < 150 && b < 95) return "floor";
+    if (r > 90 && g > 55 && b < 55) return "wall";
+    if (max - min < 35) return "wall";
+    return "floor";
   }
 
   function addCustomMarker(point) {
@@ -1319,7 +1516,7 @@
   function fitDungeon() {
     const size = canvasSize(dungeonCanvas);
     const scale = Math.min(size.width / dungeonState.data.width, size.height / dungeonState.data.height) * 0.92;
-    dungeonState.view.scale = clamp(scale, 4, 72);
+    dungeonState.view.scale = clamp(scale, 1, 72);
     dungeonState.view.x = (size.width - dungeonState.data.width * dungeonState.view.scale) / 2;
     dungeonState.view.y = (size.height - dungeonState.data.height * dungeonState.view.scale) / 2;
     renderDungeon();
@@ -1355,7 +1552,7 @@
       }
     }
 
-    if (options.grid) {
+    if (options.grid && (!options.screen || cell >= 4)) {
       drawDungeonGrid(ctx, options.x, options.y, data.width, data.height, cell);
     }
 
@@ -1371,6 +1568,10 @@
     ctx.save();
     ctx.fillStyle = visibleTile.color;
     ctx.fillRect(x, y, size, size);
+    if (size < 4) {
+      ctx.restore();
+      return;
+    }
 
     if (visibleId === "floor") drawFloorTexture(ctx, x, y, size);
     if (visibleId === "wall") drawWallTexture(ctx, x, y, size);
@@ -1586,7 +1787,7 @@
     const point = getCanvasPoint(dungeonCanvas, event);
     const before = screenToDungeonCellFloat(point);
     const factor = event.deltaY < 0 ? 1.12 : 0.89;
-    const next = clamp(dungeonState.view.scale * factor, 4, 110);
+    const next = clamp(dungeonState.view.scale * factor, 1, 110);
     dungeonState.view.scale = next;
     dungeonState.view.x = point.x - before.x * next;
     dungeonState.view.y = point.y - before.y * next;
@@ -1737,8 +1938,16 @@
     event.target.value = "";
   }
 
+  function effectiveDungeonExportCell() {
+    const requested = clamp(Number(dungeonState.exportCellSize) || 70, DUNGEON_EXPORT_MIN_CELL, DUNGEON_EXPORT_MAX_CELL);
+    const maxDimension = Math.max(1, dungeonState.data.width, dungeonState.data.height);
+    const fitted = clamp(Math.floor(DUNGEON_EXPORT_MAX_SIDE / maxDimension), DUNGEON_EXPORT_MIN_CELL, DUNGEON_EXPORT_MAX_CELL);
+    return Math.min(requested, fitted);
+  }
+
   function downloadDungeonPng(gmView) {
-    const cell = clamp(dungeonState.exportCellSize, 32, 180);
+    const requestedCell = clamp(dungeonState.exportCellSize, DUNGEON_EXPORT_MIN_CELL, DUNGEON_EXPORT_MAX_CELL);
+    const cell = effectiveDungeonExportCell();
     const offscreen = document.createElement("canvas");
     offscreen.width = dungeonState.data.width * cell;
     offscreen.height = dungeonState.data.height * cell;
@@ -1755,6 +1964,9 @@
       screen: false,
     });
     downloadCanvas(offscreen, gmView ? "danubia-masmorra-mestre.png" : "danubia-masmorra-jogadores.png");
+    if (cell < requestedCell) {
+      alert(`PNG exportado com ${cell}px por quadrado para manter o arquivo em ate ${DUNGEON_EXPORT_MAX_SIDE}px no maior lado.`);
+    }
   }
 
   function renderLabelList() {
@@ -1774,10 +1986,14 @@
     $("#dungeonSizeReadout").textContent = `${dungeonState.data.width} x ${dungeonState.data.height}`;
     $("#dungeonModeReadout").textContent = modeLabel(dungeonState.mode);
     $("#dungeonTileReadout").textContent = tileById[dungeonState.tile]?.label || "Piso";
-    $("#dungeonExportReadout").textContent = `${dungeonState.data.width * dungeonState.exportCellSize} x ${dungeonState.data.height * dungeonState.exportCellSize}`;
+    const exportCell = effectiveDungeonExportCell();
+    const suffix = exportCell < dungeonState.exportCellSize ? ` (${exportCell}px/quad.)` : "";
+    $("#dungeonExportReadout").textContent = `${dungeonState.data.width * exportCell} x ${dungeonState.data.height * exportCell}${suffix}`;
   }
 
   function generateCity() {
+    generateIllustratedCity();
+    return;
     const rng = createRng(cityState.settings.seed);
     const areaM2 = cityState.settings.areaKm2 * 1000000;
     const aspect = 1.62;
@@ -1940,6 +2156,8 @@
   }
 
   function renderCity() {
+    renderIllustratedCity();
+    return;
     const size = resizeCanvas(cityCanvas, cityCtx);
     cityCtx.clearRect(0, 0, size.width, size.height);
     cityCtx.fillStyle = "#3f5038";
@@ -1953,6 +2171,8 @@
   }
 
   function drawCityToContext(ctx, offsetX, offsetY, scale, screen) {
+    drawIllustratedCityToContext(ctx, offsetX, offsetY, scale, screen);
+    return;
     const data = cityState.data;
     ctx.save();
     ctx.translate(offsetX, offsetY);
@@ -2140,17 +2360,27 @@
     data.manual.buildings.forEach((building) => drawCityBuilding(ctx, building, true));
   }
 
-  function drawCityBuilding(ctx, building, manual) {
+  function drawCityBuilding(ctx, building, manual, theme = cityTheme()) {
     ctx.save();
     ctx.translate(building.x, building.y);
     ctx.rotate(building.rotation || 0);
     ctx.fillStyle = building.color || buildingColor({ id: "default" }, () => 0.5);
     ctx.fillRect(-building.w / 2, -building.h / 2, building.w, building.h);
-    ctx.strokeStyle = manual ? "rgba(255, 224, 161, 0.70)" : "rgba(40, 26, 16, 0.22)";
-    ctx.lineWidth = manual ? 2.2 : 1.4;
+    ctx.strokeStyle = manual ? theme.markerStroke : "rgba(37, 32, 25, 0.72)";
+    ctx.lineWidth = manual ? 2.6 : 1.8;
     ctx.strokeRect(-building.w / 2, -building.h / 2, building.w, building.h);
-    ctx.fillStyle = "rgba(255, 234, 166, 0.28)";
-    ctx.fillRect(-building.w * 0.15, -building.h * 0.15, building.w * 0.30, building.h * 0.30);
+    if (building.kind === "house" || building.generated) {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-building.w * 0.34, 0);
+      ctx.lineTo(building.w * 0.34, 0);
+      ctx.stroke();
+    }
+    if (building.kind === "noble" || building.kind === "temple") {
+      ctx.fillStyle = "rgba(255, 244, 205, 0.38)";
+      ctx.fillRect(-building.w * 0.18, -building.h * 0.18, building.w * 0.36, building.h * 0.36);
+    }
     if (building.kind === "tower") {
       ctx.beginPath();
       ctx.arc(0, 0, Math.min(building.w, building.h) * 0.35, 0, Math.PI * 2);
@@ -2247,6 +2477,734 @@
     ctx.fillStyle = "#f0d48b";
     ctx.font = "700 13px Georgia";
     ctx.fillText("1 km", x, y - 10);
+    ctx.restore();
+  }
+
+  function generateIllustratedCity() {
+    const settings = cityState.settings;
+    const rng = createRng(`${settings.seed}:${settings.visualStyle}:${settings.densityMode}:${settings.buildingMode}`);
+    const areaM2 = settings.areaKm2 * 1000000;
+    const aspect = 1.42;
+    const widthM = Math.sqrt(areaM2 * aspect);
+    const heightM = areaM2 / widthM;
+    const center = { x: widthM * 0.53, y: heightM * 0.50 };
+    const wall = buildIllustratedWall(widthM, heightM, center, rng);
+    const river = settings.showWater ? buildIllustratedRiver(widthM, heightM, rng) : [];
+    const districts = buildIllustratedDistricts(widthM, heightM, wall, rng);
+    const roads = buildIllustratedRoads(widthM, heightM, wall, districts, rng);
+    const fields = buildIllustratedFields(widthM, heightM, wall, rng);
+    const trees = buildIllustratedTrees(widthM, heightM, wall, districts, river, rng);
+    const blocks = buildIllustratedBlocks(widthM, heightM, wall, districts, rng);
+    const buildings = buildIllustratedBuildings(blocks, districts, roads, rng);
+    const markers = buildIllustratedMarkers(widthM, heightM, wall, center);
+
+    cityState.data = {
+      mapVersion: 3,
+      name: settings.name,
+      population: settings.population,
+      areaKm2: settings.areaKm2,
+      widthM,
+      heightM,
+      center,
+      wall,
+      river,
+      waterWidth: Math.max(150, Math.min(widthM, heightM) * 0.042),
+      fields,
+      trees,
+      districts,
+      roads,
+      blocks,
+      buildings,
+      markers,
+      manual: createEmptyCityManual(),
+    };
+    fitCity();
+    renderCityLists();
+    updateCityReadouts();
+  }
+
+  function buildIllustratedWall(width, height, center, rng) {
+    const rx = width * 0.34;
+    const ry = height * 0.34;
+    const points = [];
+    const count = 38;
+    for (let i = 0; i < count; i += 1) {
+      const angle = -Math.PI / 2 + (i / count) * Math.PI * 2;
+      const westPull = Math.cos(angle) < -0.72 ? 0.90 : 1;
+      const southPush = Math.sin(angle) > 0.55 ? 1.08 : 1;
+      const jitterScale = 0.92 + rng() * 0.18;
+      points.push({
+        x: center.x + Math.cos(angle) * rx * jitterScale * westPull + Math.sin(angle * 2.7) * width * 0.018,
+        y: center.y + Math.sin(angle) * ry * jitterScale * southPush + Math.cos(angle * 2.2) * height * 0.014,
+      });
+    }
+    const gates = [
+      { id: "north", name: "Porta Norte", angle: -Math.PI / 2, type: "Portao" },
+      { id: "east", name: "Porta Leste", angle: 0, type: "Portao" },
+      { id: "south", name: "Porta Sul", angle: Math.PI / 2, type: "Portao" },
+      { id: "west", name: "Porta das Docas", angle: Math.PI, type: "Portao" },
+    ].map((gate) => ({
+      ...gate,
+      x: center.x + Math.cos(gate.angle) * rx * (gate.id === "west" ? 0.88 : 0.98),
+      y: center.y + Math.sin(gate.angle) * ry * (gate.id === "south" ? 1.06 : 0.98),
+    }));
+    return { center, rx, ry, points, gates };
+  }
+
+  function buildIllustratedDistricts(width, height, wall, rng) {
+    const c = wall.center;
+    return [
+      makeIllustratedDistrict("castle", "Cidadela Real", c.x - width * 0.02, c.y - height * 0.31, width * 0.15, height * 0.095, -0.04, "#b9b3a4", 0.28, 3, rng),
+      makeIllustratedDistrict("old", "Centro Antigo", c.x - width * 0.04, c.y - height * 0.06, width * 0.19, height * 0.15, 0.10, "#c7b18b", 0.92, 3, rng),
+      makeIllustratedDistrict("market", "Mercado Grande", c.x + width * 0.08, c.y + height * 0.14, width * 0.17, height * 0.11, -0.08, "#d1bc84", 0.78, 3, rng),
+      makeIllustratedDistrict("port", "Porto e Docas", c.x - width * 0.27, c.y + height * 0.10, width * 0.15, height * 0.20, 0.55, "#b49676", 0.82, 2, rng),
+      makeIllustratedDistrict("craft", "Oficinas e Forjas", c.x - width * 0.16, c.y + height * 0.23, width * 0.16, height * 0.12, -0.08, "#aa8165", 0.86, 2, rng),
+      makeIllustratedDistrict("noble", "Bairro Nobre", c.x + width * 0.20, c.y - height * 0.15, width * 0.16, height * 0.13, -0.16, "#c9b99b", 0.46, 2, rng),
+      makeIllustratedDistrict("temple", "Distrito dos Templos", c.x + width * 0.23, c.y + height * 0.04, width * 0.14, height * 0.11, 0.08, "#d6ceb5", 0.40, 2, rng),
+      makeIllustratedDistrict("garden", "Jardins Murados", c.x - width * 0.25, c.y - height * 0.18, width * 0.14, height * 0.13, -0.18, "#9fb084", 0.26, 1, rng),
+      makeIllustratedDistrict("outer", "Bairros Externos", c.x + width * 0.21, c.y + height * 0.30, width * 0.17, height * 0.11, -0.14, "#b98967", 0.70, 1, rng, true),
+    ];
+  }
+
+  function makeIllustratedDistrict(id, name, cx, cy, rx, ry, angle, color, density, importance, rng, outside = false) {
+    return {
+      id,
+      name,
+      cx,
+      cy,
+      rx,
+      ry,
+      angle,
+      color,
+      density,
+      importance,
+      outside,
+      polygon: makeBlobPolygon(cx, cy, rx, ry, 18, rng, angle, 0.16),
+    };
+  }
+
+  function buildIllustratedRoads(width, height, wall, districts, rng) {
+    const roads = [];
+    const c = wall.center;
+    wall.gates.forEach((gate) => {
+      const bend = { x: (gate.x + c.x) / 2 + jitter(rng, width * 0.035), y: (gate.y + c.y) / 2 + jitter(rng, height * 0.035) };
+      roads.push({ type: "avenue", name: gate.name, points: [gate, bend, c] });
+    });
+    roads.push({ type: "avenue", name: "Eixo Real", points: [{ x: c.x - width * 0.06, y: c.y - height * 0.34 }, { x: c.x - width * 0.02, y: c.y - height * 0.10 }, c, { x: c.x + width * 0.06, y: c.y + height * 0.25 }] });
+    roads.push({ type: "major", name: "Rua das Docas", points: [{ x: c.x - width * 0.32, y: c.y + height * 0.14 }, { x: c.x - width * 0.13, y: c.y + height * 0.10 }, c, { x: c.x + width * 0.24, y: c.y + height * 0.07 }] });
+    roads.push({ type: "major", name: "Estrada dos Mercadores", points: [{ x: c.x - width * 0.20, y: c.y + height * 0.26 }, { x: c.x + width * 0.06, y: c.y + height * 0.16 }, { x: c.x + width * 0.33, y: c.y + height * 0.22 }] });
+    districts.forEach((district) => {
+      const localCount = district.importance + (cityState.settings.densityMode === "high" ? 3 : cityState.settings.densityMode === "medium" ? 2 : 1);
+      for (let i = -localCount; i <= localCount; i += 1) {
+        const t = i / Math.max(1, localCount + 1);
+        const span = district.rx * (0.78 + rng() * 0.12);
+        const offset = t * district.ry * 0.86;
+        const a = localToWorld(district.cx, district.cy, district.angle, -span, offset + jitter(rng, 18));
+        const b = localToWorld(district.cx, district.cy, district.angle, span, offset + jitter(rng, 18));
+        if (pointInPolygon(a, district.polygon) && pointInPolygon(b, district.polygon)) {
+          roads.push({ type: "street", name: district.name, points: [a, b] });
+        }
+      }
+      for (let i = -Math.floor(localCount / 2); i <= Math.floor(localCount / 2); i += 1) {
+        const t = i / Math.max(1, localCount);
+        const span = district.ry * 0.66;
+        const offset = t * district.rx * 0.72;
+        const a = localToWorld(district.cx, district.cy, district.angle, offset + jitter(rng, 14), -span);
+        const b = localToWorld(district.cx, district.cy, district.angle, offset + jitter(rng, 14), span);
+        if (pointInPolygon(a, district.polygon) && pointInPolygon(b, district.polygon)) {
+          roads.push({ type: "lane", name: district.name, points: [a, b] });
+        }
+      }
+    });
+    return roads;
+  }
+
+  function buildIllustratedRiver(width, height, rng) {
+    return [
+      { x: width * -0.04, y: height * 0.30 },
+      { x: width * 0.09, y: height * 0.32 + jitter(rng, 30) },
+      { x: width * 0.18, y: height * 0.41 + jitter(rng, 40) },
+      { x: width * 0.18, y: height * 0.58 + jitter(rng, 40) },
+      { x: width * 0.14, y: height * 0.78 + jitter(rng, 30) },
+      { x: width * 0.19, y: height * 1.04 },
+    ];
+  }
+
+  function buildIllustratedFields(width, height, wall, rng) {
+    const fields = [];
+    const count = cityState.settings.densityMode === "low" ? 42 : 64;
+    for (let i = 0; i < count; i += 1) {
+      const side = rng();
+      const x = side < 0.34 ? rng() * width * 0.26 : side < 0.68 ? width * (0.74 + rng() * 0.22) : width * (0.25 + rng() * 0.55);
+      const y = side < 0.68 ? rng() * height : height * (0.72 + rng() * 0.22);
+      if (pointInCityWall({ x, y }, wall)) continue;
+      fields.push({
+        x,
+        y,
+        w: 130 + rng() * 360,
+        h: 90 + rng() * 260,
+        angle: jitter(rng, 0.22),
+        color: rng() < 0.5 ? "#a99b67" : "#8f9f70",
+      });
+    }
+    return fields;
+  }
+
+  function buildIllustratedTrees(width, height, wall, districts, river, rng) {
+    const trees = [];
+    const garden = districts.find((district) => district.id === "garden");
+    const count = cityState.settings.densityMode === "high" ? 430 : cityState.settings.densityMode === "medium" ? 340 : 260;
+    for (let i = 0; i < count; i += 1) {
+      let x;
+      let y;
+      if (garden && rng() < 0.34) {
+        const p = randomPointInDistrict(garden, rng);
+        x = p.x;
+        y = p.y;
+      } else {
+        x = rng() * width;
+        y = rng() * height;
+        if (pointInCityWall({ x, y }, wall) && rng() < 0.76) continue;
+      }
+      if (river.length && distanceToPolyline({ x, y }, river) < 130) continue;
+      trees.push({ x, y, r: 13 + rng() * 16, color: rng() < 0.5 ? "#496c55" : "#5f795f" });
+    }
+    return trees;
+  }
+
+  function buildIllustratedBlocks(width, height, wall, districts, rng) {
+    const blocks = [];
+    districts.forEach((district) => {
+      const baseW = district.id === "old" ? 145 : district.id === "market" ? 165 : district.id === "noble" ? 215 : 185;
+      const baseH = district.id === "old" ? 105 : district.id === "port" ? 130 : 125;
+      for (let u = -district.rx * 0.78; u < district.rx * 0.78; u += baseW + rng() * 42) {
+        for (let v = -district.ry * 0.76; v < district.ry * 0.76; v += baseH + rng() * 36) {
+          const w = baseW * (0.72 + rng() * 0.45);
+          const h = baseH * (0.72 + rng() * 0.42);
+          const local = { x: u + w / 2 + jitter(rng, 18), y: v + h / 2 + jitter(rng, 18) };
+          const p = localToWorld(district.cx, district.cy, district.angle, local.x, local.y);
+          if (!pointInPolygon(p, district.polygon)) continue;
+          if (!district.outside && !pointInCityWall(p, wall)) continue;
+          const plaza = (district.id === "market" && rng() < 0.20) || (district.id === "temple" && rng() < 0.16) || rng() < 0.035;
+          blocks.push({
+            districtId: district.id,
+            x: p.x,
+            y: p.y,
+            w,
+            h,
+            angle: district.angle + jitter(rng, 0.035),
+            plaza,
+            color: plaza ? "#d8c9a5" : district.color,
+          });
+        }
+      }
+    });
+    return blocks;
+  }
+
+  function buildIllustratedBuildings(blocks, districts, roads, rng) {
+    if (cityState.settings.buildingMode === "hidden") return [];
+    const buildings = [];
+    const density = cityDensityFactor();
+    const blockMode = cityState.settings.buildingMode === "blocks";
+    blocks.forEach((block) => {
+      if (block.plaza) return;
+      const district = districts.find((item) => item.id === block.districtId) || districts[0];
+      const lotW = blockMode ? 78 : district.id === "old" ? 34 : 44;
+      const lotH = blockMode ? 54 : district.id === "old" ? 27 : 34;
+      const cols = clamp(Math.floor(block.w / lotW), 1, blockMode ? 3 : 8);
+      const rows = clamp(Math.floor(block.h / lotH), 1, blockMode ? 3 : 6);
+      const chance = clamp(district.density * density, 0.15, 0.96);
+      for (let cx = 0; cx < cols; cx += 1) {
+        for (let cy = 0; cy < rows; cy += 1) {
+          if (rng() > chance) continue;
+          const lx = -block.w / 2 + (cx + 0.5) * (block.w / cols) + jitter(rng, block.w / cols * 0.12);
+          const ly = -block.h / 2 + (cy + 0.5) * (block.h / rows) + jitter(rng, block.h / rows * 0.12);
+          const p = localToWorld(block.x, block.y, block.angle, lx, ly);
+          if (roads.some((road) => distanceToPolyline(p, road.points) < roadWidth(road) * 1.6)) continue;
+          buildings.push({
+            id: `house-${buildings.length}`,
+            kind: district.id === "temple" && rng() < 0.08 ? "temple" : district.id === "noble" && rng() < 0.18 ? "noble" : "house",
+            x: p.x,
+            y: p.y,
+            w: Math.max(16, block.w / cols * (blockMode ? 0.70 : 0.48 + rng() * 0.22)),
+            h: Math.max(13, block.h / rows * (blockMode ? 0.70 : 0.48 + rng() * 0.22)),
+            rotation: block.angle + jitter(rng, 0.08),
+            color: illustratedBuildingColor(district, rng),
+            generated: true,
+          });
+        }
+      }
+    });
+    const cap = cityState.settings.densityMode === "high" ? 5200 : cityState.settings.densityMode === "medium" ? 3600 : 2200;
+    return buildings.slice(0, cap);
+  }
+
+  function buildIllustratedMarkers(width, height, wall, center) {
+    const gate = (id) => wall.gates.find((item) => item.id === id) || center;
+    return [
+      { name: "Castelo de Thais", type: "Poder", x: center.x - width * 0.02, y: center.y - height * 0.31, importance: 3 },
+      { name: "Grande Orvalho", type: "Praca", x: center.x, y: center.y, importance: 3 },
+      { name: "Docas Reais", type: "Porto", x: center.x - width * 0.30, y: center.y + height * 0.15, importance: 2 },
+      { name: "Mercado das Especiarias", type: "Mercado", x: center.x + width * 0.09, y: center.y + height * 0.15, importance: 2 },
+      { name: "Templo das Mares", type: "Templo", x: center.x + width * 0.23, y: center.y + height * 0.04, importance: 2 },
+      { name: "Quartel da Porta Leste", type: "Guarda", x: gate("east").x - width * 0.03, y: gate("east").y, importance: 1 },
+      { name: "Catacumbas Antigas", type: "Masmorra", x: center.x - width * 0.18, y: center.y + height * 0.02, importance: 2 },
+      { name: "Porta Norte", type: "Portao", x: gate("north").x, y: gate("north").y, importance: 1 },
+      { name: "Porta Sul", type: "Portao", x: gate("south").x, y: gate("south").y, importance: 1 },
+    ];
+  }
+
+  function renderIllustratedCity() {
+    const size = resizeCanvas(cityCanvas, cityCtx);
+    cityCtx.clearRect(0, 0, size.width, size.height);
+    const theme = cityTheme();
+    cityCtx.fillStyle = theme.outside;
+    cityCtx.fillRect(0, 0, size.width, size.height);
+    if (!cityState.data) {
+      drawCenteredText(cityCtx, size.width, size.height, "Gere uma cidade.");
+      return;
+    }
+    drawIllustratedCityToContext(cityCtx, cityState.view.x, cityState.view.y, cityState.view.scale, true);
+    updateCityReadouts();
+  }
+
+  function drawIllustratedCityToContext(ctx, offsetX, offsetY, scale, screen) {
+    const data = cityState.data;
+    const theme = cityTheme();
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+    drawIllustratedTerrain(ctx, data, theme);
+    if (cityState.settings.showFields) drawIllustratedFields(ctx, data, theme);
+    if (cityState.settings.showWater && data.river?.length) drawIllustratedRiver(ctx, data, theme);
+    drawIllustratedTrees(ctx, data, theme, false);
+    drawIllustratedDistricts(ctx, data, theme);
+    drawIllustratedBlocks(ctx, data, theme);
+    drawCityManualTerrain(ctx, data);
+    drawIllustratedRoads(ctx, data, theme);
+    drawCityManualRoads(ctx, data);
+    if (cityState.settings.showWalls) drawIllustratedWalls(ctx, data, theme);
+    if (cityState.settings.showBuildings && cityState.settings.buildingMode !== "hidden") drawIllustratedBuildings(ctx, data, theme);
+    if (cityState.settings.showBuildings) drawCityManualBuildings(ctx, data);
+    drawIllustratedTrees(ctx, data, theme, true);
+    if (cityState.settings.showGrid) drawCityGrid(ctx, data, scale, screen);
+    drawIllustratedTitle(ctx, data, theme);
+    if (cityState.settings.showDistrictLabels) drawIllustratedDistrictLabels(ctx, data, scale, screen, theme);
+    if (cityState.settings.showMarkers) drawIllustratedMarkers(ctx, data, scale, screen, theme);
+    ctx.restore();
+    if (screen) drawIllustratedCityScaleBar(ctx, theme);
+  }
+
+  function drawIllustratedTerrain(ctx, data, theme) {
+    ctx.fillStyle = theme.land;
+    ctx.fillRect(0, 0, data.widthM, data.heightM);
+    ctx.save();
+    ctx.strokeStyle = theme.contour;
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 34; i += 1) {
+      const y = (i / 33) * data.heightM;
+      ctx.beginPath();
+      for (let x = -60; x <= data.widthM + 60; x += 170) {
+        const py = y + Math.sin(x * 0.002 + i * 0.72) * 34;
+        if (x <= -60) ctx.moveTo(x, py);
+        else ctx.lineTo(x, py);
+      }
+      ctx.stroke();
+    }
+    if (theme.paperGrain) {
+      ctx.fillStyle = "rgba(76, 56, 32, 0.035)";
+      for (let i = 0; i < 120; i += 1) {
+        ctx.fillRect((i * 431) % data.widthM, (i * 277) % data.heightM, 18 + (i % 5) * 8, 2);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawIllustratedFields(ctx, data, theme) {
+    data.fields?.forEach((field) => {
+      ctx.save();
+      ctx.translate(field.x, field.y);
+      ctx.rotate(field.angle || 0);
+      ctx.fillStyle = field.color;
+      ctx.globalAlpha = 0.72;
+      ctx.fillRect(-field.w / 2, -field.h / 2, field.w, field.h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = theme.fieldLine;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-field.w / 2, -field.h / 2, field.w, field.h);
+      for (let x = -field.w / 2 + 14; x < field.w / 2; x += 28) {
+        ctx.beginPath();
+        ctx.moveTo(x, -field.h / 2 + 7);
+        ctx.lineTo(x + field.h * 0.30, field.h / 2 - 7);
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+  }
+
+  function drawIllustratedRiver(ctx, data, theme) {
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = theme.waterEdgeDark;
+    ctx.lineWidth = data.waterWidth + 46;
+    drawPolyline(ctx, data.river);
+    ctx.stroke();
+    ctx.strokeStyle = theme.waterEdge;
+    ctx.lineWidth = data.waterWidth + 24;
+    drawPolyline(ctx, data.river);
+    ctx.stroke();
+    ctx.strokeStyle = theme.water;
+    ctx.lineWidth = data.waterWidth;
+    drawPolyline(ctx, data.river);
+    ctx.stroke();
+    ctx.strokeStyle = theme.waterLine;
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 4; i += 1) {
+      ctx.setLineDash([80, 38]);
+      ctx.lineDashOffset = i * 36;
+      drawPolyline(ctx, data.river.map((point) => ({ x: point.x + i * 13 - 18, y: point.y + i * 8 - 12 })));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawIllustratedDistricts(ctx, data, theme) {
+    data.districts?.forEach((district) => {
+      ctx.save();
+      ctx.fillStyle = district.color;
+      ctx.globalAlpha = 0.12;
+      drawClosedPolygon(ctx, district.polygon);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = theme.districtLine;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([18, 14]);
+      drawClosedPolygon(ctx, district.polygon);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  function drawIllustratedBlocks(ctx, data, theme) {
+    data.blocks?.forEach((block) => {
+      ctx.save();
+      ctx.translate(block.x, block.y);
+      ctx.rotate(block.angle || 0);
+      ctx.fillStyle = block.plaza ? theme.plaza : theme.blockFill;
+      ctx.strokeStyle = block.plaza ? theme.plazaLine : theme.blockLine;
+      ctx.globalAlpha = block.plaza ? 0.92 : 0.34;
+      roundedRect(ctx, -block.w / 2, -block.h / 2, block.w, block.h, Math.min(18, block.w * 0.08));
+      ctx.fill();
+      ctx.globalAlpha = block.plaza ? 0.92 : 0.46;
+      ctx.lineWidth = block.plaza ? 3 : 1.2;
+      ctx.stroke();
+      if (block.plaza) {
+        ctx.beginPath();
+        ctx.arc(0, 0, Math.min(block.w, block.h) * 0.20, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+  }
+
+  function drawIllustratedRoads(ctx, data, theme) {
+    data.roads?.forEach((road) => {
+      const width = roadWidth(road);
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = theme.roadBorder;
+      ctx.lineWidth = width + 7;
+      drawPolyline(ctx, road.points);
+      ctx.stroke();
+      ctx.strokeStyle = road.type === "avenue" ? theme.avenue : road.type === "major" ? theme.road : theme.lane;
+      ctx.lineWidth = width;
+      drawPolyline(ctx, road.points);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  function drawIllustratedWalls(ctx, data, theme) {
+    const wall = data.wall;
+    if (!wall?.points?.length) return;
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = theme.wallOuter;
+    ctx.lineWidth = 30;
+    drawClosedPolygon(ctx, wall.points);
+    ctx.stroke();
+    ctx.strokeStyle = theme.wallInner;
+    ctx.lineWidth = 17;
+    drawClosedPolygon(ctx, wall.points);
+    ctx.stroke();
+    ctx.strokeStyle = theme.wallInk;
+    ctx.lineWidth = 3;
+    drawClosedPolygon(ctx, wall.points);
+    ctx.stroke();
+    wall.points.forEach((point, index) => {
+      if (index % 4 !== 0) return;
+      drawWallTower(ctx, point.x, point.y, 30, theme);
+    });
+    wall.gates.forEach((gate) => drawWallGate(ctx, gate, theme));
+    ctx.restore();
+  }
+
+  function drawIllustratedBuildings(ctx, data, theme) {
+    data.buildings?.forEach((building) => drawCityBuilding(ctx, building, false, theme));
+  }
+
+  function drawIllustratedTrees(ctx, data, theme, foreground) {
+    data.trees?.forEach((tree, index) => {
+      const inside = pointInCityWall(tree, data.wall);
+      if (foreground !== inside) return;
+      if (!foreground && index % 2 === 0 && cityState.settings.visualStyle === "gray") return;
+      ctx.save();
+      ctx.strokeStyle = theme.treeInk;
+      ctx.fillStyle = tree.color || theme.tree;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tree.x, tree.y, tree.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(tree.x, tree.y + tree.r * 0.75);
+      ctx.lineTo(tree.x, tree.y + tree.r * 1.35);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  function drawIllustratedTitle(ctx, data, theme) {
+    ctx.save();
+    ctx.fillStyle = theme.ink;
+    ctx.strokeStyle = theme.titleStroke;
+    ctx.lineWidth = 8;
+    ctx.font = `900 ${Math.max(130, data.heightM * 0.07)}px Cinzel, Georgia`;
+    ctx.textBaseline = "top";
+    ctx.strokeText(data.name, data.widthM * 0.045, data.heightM * 0.035);
+    ctx.fillText(data.name, data.widthM * 0.045, data.heightM * 0.035);
+    ctx.font = `700 ${Math.max(45, data.heightM * 0.023)}px Georgia`;
+    ctx.fillText(`Pop. ${data.population.toLocaleString("pt-BR")}`, data.widthM * 0.05, data.heightM * 0.115);
+    ctx.restore();
+  }
+
+  function drawIllustratedDistrictLabels(ctx, data, scale, screen, theme) {
+    const mode = cityState.settings.labelMode;
+    data.districts?.forEach((district) => {
+      if (mode === "clean" && district.importance < 2) return;
+      ctx.save();
+      ctx.translate(district.cx, district.cy);
+      ctx.rotate(district.angle);
+      const fontSize = screen ? clamp(15 / Math.max(scale, 0.001), 38, 95) : 58;
+      ctx.font = `800 ${fontSize}px Cinzel, Georgia`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.strokeStyle = theme.labelHalo;
+      ctx.lineWidth = fontSize * 0.18;
+      ctx.fillStyle = theme.label;
+      ctx.strokeText(district.name.toUpperCase(), 0, 0);
+      ctx.fillText(district.name.toUpperCase(), 0, 0);
+      ctx.restore();
+    });
+  }
+
+  function drawIllustratedMarkers(ctx, data, scale, screen, theme) {
+    ensureCityManual(data);
+    const allMarkers = [...data.markers, ...data.manual.markers];
+    const mode = cityState.settings.labelMode;
+    allMarkers.forEach((marker) => {
+      const important = marker.importance >= 2 || marker.manual;
+      ctx.save();
+      ctx.fillStyle = marker.type === "Masmorra" ? "#8f3a33" : marker.type === "Porto" ? theme.waterEdgeDark : "#9a4636";
+      ctx.strokeStyle = theme.markerStroke;
+      ctx.lineWidth = screen ? 1.6 / Math.max(scale, 0.001) : 5;
+      ctx.beginPath();
+      ctx.arc(marker.x, marker.y, screen ? 5.5 / Math.max(scale, 0.001) : 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      if (cityState.settings.showMarkerLabels || mode === "gm" || (!screen && important) || (mode === "full" && important)) {
+        const fontSize = screen ? clamp(12 / Math.max(scale, 0.001), 32, 76) : 42;
+        ctx.font = `700 ${fontSize}px Georgia`;
+        ctx.textBaseline = "middle";
+        ctx.strokeStyle = theme.labelHalo;
+        ctx.lineWidth = fontSize * 0.22;
+        ctx.fillStyle = theme.label;
+        ctx.strokeText(marker.name, marker.x + fontSize * 0.70, marker.y - fontSize * 0.15);
+        ctx.fillText(marker.name, marker.x + fontSize * 0.70, marker.y - fontSize * 0.15);
+      }
+      ctx.restore();
+    });
+  }
+
+  function drawIllustratedCityScaleBar(ctx, theme) {
+    const size = canvasSize(cityCanvas);
+    const meters = 1000;
+    const width = meters * cityState.view.scale;
+    const x = 24;
+    const y = size.height - 34;
+    ctx.save();
+    ctx.strokeStyle = theme.scaleInk;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + width, y);
+    ctx.stroke();
+    ctx.strokeStyle = theme.scaleLight;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + width, y);
+    ctx.stroke();
+    ctx.fillStyle = theme.scaleInk;
+    ctx.font = "700 13px Georgia";
+    ctx.fillText("1 km", x, y - 10);
+    ctx.restore();
+  }
+
+  function cityTheme() {
+    const themes = {
+      parchment: {
+        outside: "#d8c8a8", land: "#d6c6a6", ink: "#252019", label: "#2e2920", labelHalo: "rgba(226, 212, 177, 0.92)", titleStroke: "rgba(232, 219, 188, 0.9)",
+        contour: "rgba(80, 72, 58, 0.12)", districtLine: "rgba(63, 54, 40, 0.22)", blockFill: "#c9b99b", blockLine: "rgba(49, 42, 32, 0.25)", plaza: "#dccdaa", plazaLine: "#6d5d42",
+        roadBorder: "#51483c", avenue: "#efe5ca", road: "#e2d4b7", lane: "#d4c5a6", water: "#91b5b9", waterEdge: "#d9d2bb", waterEdgeDark: "#6d7d7c", waterLine: "rgba(240, 250, 246, 0.42)",
+        fieldLine: "rgba(55, 46, 30, 0.28)", tree: "#6f866f", treeInk: "#344330", wallOuter: "#473f35", wallInner: "#b8aa91", wallInk: "#2a241d", markerStroke: "#efe1b8",
+        scaleInk: "#2a241d", scaleLight: "#efe1b8", paperGrain: true,
+      },
+      gray: {
+        outside: "#b9b6aa", land: "#c6c1b5", ink: "#242424", label: "#2d2d2d", labelHalo: "rgba(218, 215, 204, 0.90)", titleStroke: "rgba(225, 222, 211, 0.86)",
+        contour: "rgba(45, 45, 45, 0.10)", districtLine: "rgba(34, 34, 34, 0.20)", blockFill: "#bbb7aa", blockLine: "rgba(34, 34, 34, 0.24)", plaza: "#d2ccbd", plazaLine: "#55524b",
+        roadBorder: "#4d4b46", avenue: "#efebe0", road: "#dfd9ca", lane: "#cbc5b8", water: "#8aa7b0", waterEdge: "#d9d6ca", waterEdgeDark: "#657a82", waterLine: "rgba(245, 247, 240, 0.36)",
+        fieldLine: "rgba(50, 50, 45, 0.25)", tree: "#72806f", treeInk: "#3d453a", wallOuter: "#2f302f", wallInner: "#a8a59c", wallInk: "#1e1e1e", markerStroke: "#f1ead5",
+        scaleInk: "#252525", scaleLight: "#f1ead5", paperGrain: false,
+      },
+      satellite: {
+        outside: "#596b52", land: "#6f8465", ink: "#221f18", label: "#262119", labelHalo: "rgba(210, 221, 196, 0.70)", titleStroke: "rgba(215, 224, 196, 0.70)",
+        contour: "rgba(233, 238, 211, 0.10)", districtLine: "rgba(38, 52, 32, 0.24)", blockFill: "#87966f", blockLine: "rgba(34, 42, 28, 0.28)", plaza: "#bdb080", plazaLine: "#534a32",
+        roadBorder: "#393a2f", avenue: "#d5cfaa", road: "#bdb68f", lane: "#9f9a79", water: "#547e8f", waterEdge: "#6e8e8c", waterEdgeDark: "#2e4c57", waterLine: "rgba(204, 230, 228, 0.32)",
+        fieldLine: "rgba(38, 48, 30, 0.32)", tree: "#3f614a", treeInk: "#1f3527", wallOuter: "#2c2d28", wallInner: "#8c8670", wallInk: "#191815", markerStroke: "#ead99f",
+        scaleInk: "#211e17", scaleLight: "#ead99f", paperGrain: false,
+      },
+      green: {
+        outside: "#a8b89a", land: "#a3b894", ink: "#25231f", label: "#2c2821", labelHalo: "rgba(206, 217, 189, 0.86)", titleStroke: "rgba(218, 226, 199, 0.88)",
+        contour: "rgba(245, 249, 231, 0.17)", districtLine: "rgba(43, 50, 35, 0.20)", blockFill: "#b8b29b", blockLine: "rgba(45, 42, 34, 0.22)", plaza: "#d0c7a7", plazaLine: "#655a3f",
+        roadBorder: "#4b4a3e", avenue: "#eee8d0", road: "#ddd4ba", lane: "#cbc2aa", water: "#78b7c7", waterEdge: "#d7dfc6", waterEdgeDark: "#527986", waterLine: "rgba(239, 250, 247, 0.38)",
+        fieldLine: "rgba(47, 58, 37, 0.30)", tree: "#597a69", treeInk: "#2f4c3d", wallOuter: "#282a27", wallInner: "#aaa58d", wallInk: "#1c1c1a", markerStroke: "#f1dfaa",
+        scaleInk: "#222018", scaleLight: "#f1dfaa", paperGrain: false,
+      },
+    };
+    return themes[cityState.settings.visualStyle] || themes.green;
+  }
+
+  function cityDensityFactor() {
+    return { low: 0.58, medium: 0.78, high: 1.0 }[cityState.settings.densityMode] || 0.78;
+  }
+
+  function roadWidth(road) {
+    return road.type === "avenue" ? 34 : road.type === "major" ? 23 : road.type === "street" ? 13 : 8;
+  }
+
+  function makeBlobPolygon(cx, cy, rx, ry, count, rng, rotation = 0, variance = 0.14) {
+    const points = [];
+    for (let i = 0; i < count; i += 1) {
+      const angle = (i / count) * Math.PI * 2;
+      const radius = 1 - variance + rng() * variance * 2;
+      const localX = Math.cos(angle) * rx * radius;
+      const localY = Math.sin(angle) * ry * radius;
+      points.push(localToWorld(cx, cy, rotation, localX, localY));
+    }
+    return points;
+  }
+
+  function localToWorld(cx, cy, angle, x, y) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    return {
+      x: cx + x * cos - y * sin,
+      y: cy + x * sin + y * cos,
+    };
+  }
+
+  function pointInCityWall(point, wall) {
+    return wall?.points?.length ? pointInPolygon(point, wall.points) : insideEllipse(point.x, point.y, wall.x, wall.y, wall.rx, wall.ry);
+  }
+
+  function pointInPolygon(point, polygon) {
+    if (!polygon?.length) return false;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+      const a = polygon[i];
+      const b = polygon[j];
+      const intersects = (a.y > point.y) !== (b.y > point.y) && point.x < ((b.x - a.x) * (point.y - a.y)) / ((b.y - a.y) || 0.0001) + a.x;
+      if (intersects) inside = !inside;
+    }
+    return inside;
+  }
+
+  function randomPointInDistrict(district, rng) {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const p = localToWorld(district.cx, district.cy, district.angle, jitter(rng, district.rx), jitter(rng, district.ry));
+      if (pointInPolygon(p, district.polygon)) return p;
+    }
+    return { x: district.cx, y: district.cy };
+  }
+
+  function illustratedBuildingColor(district, rng) {
+    const palettes = {
+      castle: ["#d6d0bf", "#bdb6a7", "#aaa292"],
+      old: ["#bba88d", "#c9b99b", "#a99578"],
+      market: ["#c9b47c", "#d1bd89", "#b99c63"],
+      port: ["#9f8468", "#8f7358", "#b29472"],
+      craft: ["#9a745c", "#856755", "#ad8263"],
+      noble: ["#cfc3a8", "#bcae91", "#d8c8a8"],
+      temple: ["#ddd4bd", "#cfc7b1", "#bfb7a4"],
+      garden: ["#9fa583", "#b0ad86", "#888f6e"],
+      outer: ["#b58a6b", "#c09b78", "#a8795d"],
+    };
+    const list = palettes[district?.id] || ["#b99a76", "#c0aa86", "#a88868"];
+    return list[Math.floor(rng() * list.length)];
+  }
+
+  function drawClosedPolygon(ctx, points) {
+    if (!points?.length) return;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i].x, points[i].y);
+    ctx.closePath();
+  }
+
+  function drawWallTower(ctx, x, y, size, theme) {
+    ctx.save();
+    ctx.fillStyle = theme.wallInner;
+    ctx.strokeStyle = theme.wallInk;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.48, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawWallGate(ctx, gate, theme) {
+    ctx.save();
+    ctx.translate(gate.x, gate.y);
+    ctx.rotate(gate.angle + Math.PI / 2);
+    ctx.fillStyle = theme.road;
+    ctx.strokeStyle = theme.wallInk;
+    ctx.lineWidth = 4;
+    ctx.fillRect(-42, -24, 84, 48);
+    ctx.strokeRect(-42, -24, 84, 48);
+    ctx.fillStyle = theme.wallOuter;
+    ctx.fillRect(-52, -35, 28, 70);
+    ctx.fillRect(24, -35, 28, 70);
+    ctx.strokeRect(-52, -35, 28, 70);
+    ctx.strokeRect(24, -35, 28, 70);
     ctx.restore();
   }
 
@@ -2732,8 +3690,8 @@
 
   function normalizeDungeon(data) {
     if (!data || !Number.isFinite(data.width) || !Number.isFinite(data.height)) return null;
-    const width = clamp(Math.floor(data.width), 5, 120);
-    const height = clamp(Math.floor(data.height), 5, 120);
+    const width = clamp(Math.floor(data.width), 5, DUNGEON_MAX_SIZE);
+    const height = clamp(Math.floor(data.height), 5, DUNGEON_MAX_SIZE);
     const cells = Array(width * height).fill("empty");
     if (Array.isArray(data.cells)) {
       for (let i = 0; i < cells.length; i += 1) {
@@ -3029,6 +3987,7 @@
     const payload = {
       map: {
         floor: mapState.floor,
+        crop: mapState.crop,
         customMarkers: mapState.customMarkers,
         editStrokes: mapState.editStrokes.slice(-800),
         settings: mapState.settings,

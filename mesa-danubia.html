@@ -49,6 +49,7 @@
             <button type="button" data-map-tool="ruler">Regua</button>
             <button type="button" data-map-tool="marker">Marco</button>
             <button type="button" data-map-tool="paint">Pintar</button>
+            <button type="button" data-map-tool="crop">Recorte</button>
           </div>
         </section>
 
@@ -123,6 +124,19 @@
         </section>
 
         <section class="control-section">
+          <div class="section-title">Recorte para Masmorra</div>
+          <label class="field-label" for="mapImportMaxSize">Limite do maior lado em quadrados</label>
+          <input id="mapImportMaxSize" type="number" min="20" max="500" step="10" value="240" />
+          <div id="mapCropReadout" class="scale-output">
+            <span>Use a ferramenta <strong>Recorte</strong> e arraste no mapa.</span>
+          </div>
+          <div class="button-row">
+            <button type="button" id="sendCropDungeonBtn">Enviar para Masmorras</button>
+            <button type="button" id="clearMapCropBtn">Limpar recorte</button>
+          </div>
+        </section>
+
+        <section class="control-section">
           <div class="section-title">Camadas</div>
           <label class="check-row"><input id="showMapGrid" type="checkbox" checked /> Grid</label>
           <label class="check-row"><input id="showMapRoutes" type="checkbox" checked /> Rotas</label>
@@ -164,11 +178,11 @@
           <div class="grid-two">
             <label>
               Largura
-              <input id="dungeonWidth" type="number" min="5" max="120" value="30" />
+              <input id="dungeonWidth" type="number" min="5" max="500" value="30" />
             </label>
             <label>
               Altura
-              <input id="dungeonHeight" type="number" min="5" max="120" value="22" />
+              <input id="dungeonHeight" type="number" min="5" max="500" value="22" />
             </label>
           </div>
           <div class="button-row">
@@ -217,7 +231,7 @@
         <section class="control-section">
           <div class="section-title">Exportar</div>
           <label class="field-label" for="exportCellSize">Pixels por quadrado no PNG</label>
-          <input id="exportCellSize" type="number" min="32" max="180" step="2" value="70" />
+          <input id="exportCellSize" type="number" min="8" max="180" step="2" value="70" />
           <div class="button-row">
             <button type="button" id="downloadDungeonBtn">PNG Mestre</button>
             <button type="button" id="downloadPlayerDungeonBtn">PNG Jogadores</button>
@@ -245,6 +259,40 @@
           <label class="field-label" for="cityMapSeed">Semente</label>
           <input id="cityMapSeed" type="text" value="thais-273110" maxlength="40" />
 
+          <label class="field-label" for="cityVisualStyle">Estilo</label>
+          <select id="cityVisualStyle">
+            <option value="green">Verde Watabou</option>
+            <option value="parchment">Pergaminho</option>
+            <option value="gray">Urbano cinza</option>
+            <option value="satellite">Satelite fantasia</option>
+          </select>
+
+          <div class="grid-two">
+            <label>
+              Densidade
+              <select id="cityDensityMode">
+                <option value="low">Baixa</option>
+                <option value="medium">Media</option>
+                <option value="high">Alta</option>
+              </select>
+            </label>
+            <label>
+              Labels
+              <select id="cityLabelMode">
+                <option value="clean">Limpo</option>
+                <option value="full">Completo</option>
+                <option value="gm">Mestre</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field-label" for="cityBuildingMode">Casas</label>
+          <select id="cityBuildingMode">
+            <option value="symbols">Simbolos</option>
+            <option value="blocks">Blocos</option>
+            <option value="hidden">Ocultar</option>
+          </select>
+
           <div class="button-row">
             <button type="button" id="generateCityBtn">Gerar</button>
             <button type="button" id="fitCityBtn">Ajustar</button>
@@ -259,6 +307,7 @@
           <div class="section-title">Conteudo</div>
           <label class="check-row"><input id="showCityGrid" type="checkbox" /> Grid de escala</label>
           <label class="check-row"><input id="showCityWalls" type="checkbox" checked /> Muralhas e portoes</label>
+          <label class="check-row"><input id="showCityWater" type="checkbox" checked /> Rio, lago e porto</label>
           <label class="check-row"><input id="showCityBuildings" type="checkbox" checked /> Construcoes</label>
           <label class="check-row"><input id="showCityMarkers" type="checkbox" checked /> Marcadores</label>
           <label class="check-row"><input id="showCityMarkerLabels" type="checkbox" /> Nomes dos marcos</label>
@@ -342,13 +391,13 @@
 
       <section class="stage">
         <div class="canvas-frame active" id="mapFrame">
-          <canvas id="mapCanvas"></canvas>
+          <canvas id="mapCanvas" role="application" aria-label="Mapa interativo de Danubia" tabindex="0"></canvas>
         </div>
         <div class="canvas-frame" id="dungeonFrame">
-          <canvas id="dungeonCanvas"></canvas>
+          <canvas id="dungeonCanvas" role="application" aria-label="Construtor interativo de masmorras" tabindex="0"></canvas>
         </div>
         <div class="canvas-frame" id="cityFrame">
-          <canvas id="cityCanvas"></canvas>
+          <canvas id="cityCanvas" role="application" aria-label="Editor interativo de cidade" tabindex="0"></canvas>
         </div>
       </section>
 
