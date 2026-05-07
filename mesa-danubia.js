@@ -51,6 +51,9 @@
     { id: "door", label: "Porta", color: "#8d4f24" },
     { id: "secret", label: "Secreta", color: "#3f4144" },
     { id: "water", label: "Agua", color: "#4e7388" },
+    { id: "acid", label: "Acido", color: "#79b84a" },
+    { id: "grass", label: "Grama", color: "#34933b" },
+    { id: "forest", label: "Floresta", color: "#1d5229" },
     { id: "lava", label: "Lava", color: "#c75b2e" },
     { id: "rough", label: "Dificil", color: "#806844" },
     { id: "trap", label: "Armadilha", color: "#a83832" },
@@ -58,6 +61,96 @@
     { id: "stairs", label: "Escada", color: "#ddd0af" },
   ];
   const tileById = Object.fromEntries(tileDefs.map((tile) => [tile.id, tile]));
+
+  const importProfileDefs = [
+    { id: "tibia-auto", label: "Tibia automatico" },
+    { id: "tibia-dungeon", label: "Tibia dungeon" },
+    { id: "tibia-world", label: "Tibia mundo" },
+    { id: "tibia-city", label: "Tibia cidade" },
+    { id: "generic", label: "Imagem generica" },
+  ];
+
+  const importRuleDefs = [
+    { id: "void", label: "Preto / vazio", color: "#171717" },
+    { id: "water", label: "Azul / agua", color: "#4e7388" },
+    { id: "orange", label: "Laranja / lava", color: "#ff6a18" },
+    { id: "red", label: "Vermelho / parede", color: "#f0442f" },
+    { id: "lightGreen", label: "Verde claro / acido", color: "#34e03d" },
+    { id: "green", label: "Verde / grama", color: "#2fa53a" },
+    { id: "darkGreen", label: "Verde escuro / floresta", color: "#17451f" },
+    { id: "yellow", label: "Amarelo / buraco ou escada", color: "#d6b74b" },
+    { id: "earth", label: "Vermelho escuro / terra", color: "#89512d" },
+    { id: "sand", label: "Bege / areia", color: "#f2c38a" },
+    { id: "stone", label: "Cinza / pedra", color: "#747672" },
+  ];
+
+  const importProfileDefaults = {
+    "tibia-auto": {
+      void: "empty",
+      water: "water",
+      orange: "wall",
+      red: "wall",
+      lightGreen: "acid",
+      green: "grass",
+      darkGreen: "forest",
+      yellow: "stairs",
+      earth: "rough",
+      sand: "floor",
+      stone: "wall",
+    },
+    "tibia-dungeon": {
+      void: "empty",
+      water: "water",
+      orange: "lava",
+      red: "wall",
+      lightGreen: "acid",
+      green: "grass",
+      darkGreen: "forest",
+      yellow: "stairs",
+      earth: "rough",
+      sand: "floor",
+      stone: "wall",
+    },
+    "tibia-world": {
+      void: "empty",
+      water: "water",
+      orange: "lava",
+      red: "wall",
+      lightGreen: "acid",
+      green: "grass",
+      darkGreen: "forest",
+      yellow: "stairs",
+      earth: "rough",
+      sand: "floor",
+      stone: "wall",
+    },
+    "tibia-city": {
+      void: "empty",
+      water: "water",
+      orange: "wall",
+      red: "wall",
+      lightGreen: "acid",
+      green: "grass",
+      darkGreen: "forest",
+      yellow: "stairs",
+      earth: "rough",
+      sand: "floor",
+      stone: "wall",
+    },
+    generic: {
+      void: "empty",
+      water: "water",
+      orange: "lava",
+      red: "wall",
+      lightGreen: "acid",
+      green: "grass",
+      darkGreen: "forest",
+      yellow: "stairs",
+      earth: "rough",
+      sand: "floor",
+      stone: "wall",
+    },
+  };
 
   const mapCanvas = $("#mapCanvas");
   const mapCtx = mapCanvas.getContext("2d");
@@ -104,6 +197,9 @@
       paintSize: persisted.map?.settings?.paintSize || 8,
       paintOpacity: persisted.map?.settings?.paintOpacity || 0.8,
       importMaxSize: persisted.map?.settings?.importMaxSize || 240,
+      importProfile: normalizeImportProfileId(persisted.map?.settings?.importProfile, persisted.map?.settings?.importRules),
+      importUseMapPaint: persisted.map?.settings?.importUseMapPaint ?? true,
+      importRules: normalizeImportRules(persisted.map?.settings?.importRules, normalizeImportProfileId(persisted.map?.settings?.importProfile, persisted.map?.settings?.importRules)),
       showGrid: persisted.map?.settings?.showGrid ?? true,
       showRoutes: persisted.map?.settings?.showRoutes ?? true,
       showMarkers: persisted.map?.settings?.showMarkers ?? true,
@@ -199,6 +295,7 @@
         fitMap();
       }
       renderMap();
+      updateMapCropReadout();
     };
     mapImage.onerror = () => {
       mapState.ready = false;
@@ -252,10 +349,17 @@
     $("#mapUndoBtn").addEventListener("click", undoMapEdit);
     $("#mapRedoBtn").addEventListener("click", redoMapEdit);
     $("#sendCropDungeonBtn").addEventListener("click", sendMapCropToDungeon);
+    $("#resetImportProfileBtn").addEventListener("click", () => {
+      mapState.settings.importRules = defaultImportRules(mapState.settings.importProfile);
+      renderImportRuleControls();
+      renderMapImportPreview();
+      persistSoon();
+    });
     $("#clearMapCropBtn").addEventListener("click", () => {
       mapState.crop = null;
       persistSoon();
       updateMapCropReadout();
+      renderMapImportPreview();
       renderMap();
     });
     $("#mapResetBtn").addEventListener("click", () => {
@@ -321,6 +425,25 @@
     });
     $("#mapPaintColor").addEventListener("input", (event) => {
       mapState.settings.paintColor = event.target.value;
+      persistSoon();
+    });
+    $("#mapImportProfile").addEventListener("change", (event) => {
+      mapState.settings.importProfile = event.target.value;
+      mapState.settings.importRules = defaultImportRules(mapState.settings.importProfile);
+      renderImportRuleControls();
+      renderMapImportPreview();
+      persistSoon();
+    });
+    $("#mapImportUsePaint").addEventListener("change", (event) => {
+      mapState.settings.importUseMapPaint = event.target.checked;
+      renderMapImportPreview();
+      persistSoon();
+    });
+    $("#mapImportRules").addEventListener("change", (event) => {
+      const selector = event.target.closest("[data-import-rule]");
+      if (!selector) return;
+      mapState.settings.importRules[selector.dataset.importRule] = selector.value;
+      renderMapImportPreview();
       persistSoon();
     });
 
@@ -578,6 +701,9 @@
     $("#mapPaintSize").value = mapState.settings.paintSize;
     $("#mapPaintOpacity").value = mapState.settings.paintOpacity;
     $("#mapImportMaxSize").value = mapState.settings.importMaxSize;
+    $("#mapImportProfile").value = mapState.settings.importProfile;
+    $("#mapImportUsePaint").checked = mapState.settings.importUseMapPaint;
+    renderImportRuleControls();
     $("#showMapGrid").checked = mapState.settings.showGrid;
     $("#showMapRoutes").checked = mapState.settings.showRoutes;
     $("#showMapMarkers").checked = mapState.settings.showMarkers;
@@ -585,6 +711,7 @@
     $("#showMapLabels").checked = mapState.settings.showLabels;
     $("#showMapScale").checked = mapState.settings.showScale;
     updateMapCropReadout();
+    renderMapImportPreview();
   }
 
   function syncDungeonInputs() {
@@ -1171,6 +1298,7 @@
     const crop = normalizedMapCrop();
     if (!crop) {
       target.innerHTML = `<span>Use a ferramenta <strong>Recorte</strong> e arraste no mapa.</span>`;
+      renderMapImportPreview();
       return;
     }
     const size = importSizeForCrop(crop);
@@ -1179,38 +1307,21 @@
       <span>Masmorra: <strong>${size.width} x ${size.height}</strong> quadrados</span>
       <span>Andar: <strong>${crop.floor}</strong></span>
     `;
+    renderMapImportPreview();
   }
 
   function sendMapCropToDungeon() {
     const crop = normalizedMapCrop();
     if (!crop || !mapState.ready) return;
     const size = importSizeForCrop(crop);
-    const offscreen = document.createElement("canvas");
-    offscreen.width = size.width;
-    offscreen.height = size.height;
-    const ctx = offscreen.getContext("2d", { willReadFrequently: true });
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(mapImage, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
-    rebuildMapEditCacheIfNeeded();
-    ctx.drawImage(mapEditCache, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
-    const imageData = ctx.getImageData(0, 0, size.width, size.height).data;
+    const conversion = convertMapCropToDungeon(crop, size);
     const dungeon = createDungeon(size.width, size.height);
-    for (let y = 0; y < size.height; y += 1) {
-      for (let x = 0; x < size.width; x += 1) {
-        const offset = (y * size.width + x) * 4;
-        dungeon.cells[y * size.width + x] = tibiaPixelToDungeonTile(
-          imageData[offset],
-          imageData[offset + 1],
-          imageData[offset + 2],
-          imageData[offset + 3]
-        );
-      }
-    }
+    dungeon.cells = conversion.cells;
     dungeon.labels.push({
       id: `crop-label-${Date.now()}`,
       x: 1,
       y: 1,
-      text: `Tibia z${crop.floor}`,
+      text: `${conversion.profileLabel} z${crop.floor}`,
       secret: true,
     });
     dungeonState.data = dungeon;
@@ -1221,19 +1332,252 @@
     persistSoon();
   }
 
-  function tibiaPixelToDungeonTile(r, g, b, a) {
+  function renderImportRuleControls() {
+    const target = $("#mapImportRules");
+    if (!target) return;
+    mapState.settings.importRules = normalizeImportRules(mapState.settings.importRules, mapState.settings.importProfile);
+    const options = tileDefs.map((tile) => `<option value="${escapeHtml(tile.id)}">${escapeHtml(tile.label)}</option>`).join("");
+    target.innerHTML = importRuleDefs.map((rule) => `
+      <label class="import-rule-row">
+        <span class="import-rule-swatch" style="background:${rule.color}"></span>
+        <span class="import-rule-name">${escapeHtml(rule.label)}</span>
+        <select data-import-rule="${escapeHtml(rule.id)}">${options}</select>
+      </label>
+    `).join("");
+    target.querySelectorAll("[data-import-rule]").forEach((select) => {
+      select.value = mapState.settings.importRules[select.dataset.importRule] || "floor";
+    });
+  }
+
+  function renderMapImportPreview() {
+    const canvas = $("#mapImportPreviewCanvas");
+    const summary = $("#mapImportSummary");
+    if (!canvas || !summary) return;
+    const crop = normalizedMapCrop();
+    if (!crop || !mapState.ready) {
+      canvas.width = 1;
+      canvas.height = 1;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, 1, 1);
+      summary.innerHTML = `<span>Nenhum recorte para pre-visualizar.</span>`;
+      return;
+    }
+    const importSize = importSizeForCrop(crop);
+    const previewSize = previewSizeForImport(importSize);
+    const conversion = convertMapCropToDungeon(crop, previewSize);
+    canvas.width = previewSize.width;
+    canvas.height = previewSize.height;
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < previewSize.height; y += 1) {
+      for (let x = 0; x < previewSize.width; x += 1) {
+        const tileId = conversion.cells[y * previewSize.width + x];
+        ctx.fillStyle = tileById[tileId]?.color || tileById.empty.color;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    summary.innerHTML = `
+      <span>Perfil: <strong>${escapeHtml(conversion.profileLabel)}</strong></span>
+      <span>Previa: <strong>${previewSize.width} x ${previewSize.height}</strong> | Final: <strong>${importSize.width} x ${importSize.height}</strong></span>
+      <span>${formatImportCounts(conversion.counts)}</span>
+    `;
+  }
+
+  function convertMapCropToDungeon(crop, size) {
+    const source = createMapCropSourceCanvas(crop, size);
+    const imageData = source.ctx.getImageData(0, 0, size.width, size.height).data;
+    const ruleIds = Array(size.width * size.height);
+    const ruleCounts = {};
+    for (let i = 0; i < ruleIds.length; i += 1) {
+      const offset = i * 4;
+      const ruleId = classifyImportPixel(
+        imageData[offset],
+        imageData[offset + 1],
+        imageData[offset + 2],
+        imageData[offset + 3]
+      );
+      ruleIds[i] = ruleId;
+      ruleCounts[ruleId] = (ruleCounts[ruleId] || 0) + 1;
+    }
+    const profile = resolveImportProfile(crop, size, ruleCounts);
+    const rules = importRulesForProfile(profile);
+    const cells = Array(size.width * size.height);
+    const counts = {};
+    for (let y = 0; y < size.height; y += 1) {
+      for (let x = 0; x < size.width; x += 1) {
+        const index = y * size.width + x;
+        const tileId = tileById[rules[ruleIds[index]]] ? rules[ruleIds[index]] : "floor";
+        cells[index] = tileId;
+        counts[tileId] = (counts[tileId] || 0) + 1;
+      }
+    }
+    return { cells, counts, ruleCounts, profile, profileLabel: resolvedImportProfileLabel(profile) };
+  }
+
+  function createMapCropSourceCanvas(crop, size) {
+    const canvas = document.createElement("canvas");
+    canvas.width = size.width;
+    canvas.height = size.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(mapImage, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
+    if (mapState.settings.importUseMapPaint) {
+      rebuildMapEditCacheIfNeeded();
+      ctx.drawImage(mapEditCache, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
+    }
+    return { canvas, ctx };
+  }
+
+  function importPixelToDungeonTile(r, g, b, a) {
+    const ruleId = classifyImportPixel(r, g, b, a);
+    const mapped = importRulesForProfile(mapState.settings.importProfile)?.[ruleId];
+    if (tileById[mapped]) return mapped;
+    return legacyPixelToDungeonTile(r, g, b, a);
+  }
+
+  function classifyImportPixel(r, g, b, a) {
+    if (a < 20) return "void";
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max < 20) return "void";
+    const { h, s, l } = rgbToHsl(r, g, b);
+    const chroma = max - min;
+    if (b > r + 18 && b > g + 4 && h >= 175 && h <= 235) return "water";
+    if (h >= 18 && h <= 38 && s > 0.48 && r > 145 && g > 55 && b < 105) return "orange";
+    if ((h <= 17 || h >= 344) && s > 0.42 && r > 105 && g < 115 && b < 105) return "red";
+    if (h >= 78 && h <= 152 && s > 0.32 && g > r + 8 && g > b + 8) {
+      if (l > 0.56 || (g > 220 && r > 45 && b > 35)) return "lightGreen";
+      if (g > 150 && r < 80 && b < 90) return "green";
+      if (l < 0.43 || g < 140) return "darkGreen";
+      return "green";
+    }
+    if (h >= 42 && h <= 65 && s > 0.28 && r > 120 && g > 105 && b < 115) return "yellow";
+    if (h >= 8 && h <= 34 && s > 0.24 && l < 0.48 && r > g && g >= b) return "earth";
+    if (r > 150 && g > 118 && b > 78 && h >= 28 && h <= 55 && l > 0.44) return "sand";
+    if (chroma < 34 && max > 45) return "stone";
+    return legacyPixelRule(r, g, b, a);
+  }
+
+  function legacyPixelRule(r, g, b, a) {
+    const tile = legacyPixelToDungeonTile(r, g, b, a);
+    if (tile === "water") return "water";
+    if (tile === "lava") return "orange";
+    if (tile === "wall") return "stone";
+    if (tile === "rough") return "green";
+    if (tile === "empty") return "void";
+    return "sand";
+  }
+
+  function legacyPixelToDungeonTile(r, g, b, a) {
     if (a < 20) return "empty";
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     if (max < 18) return "empty";
     if (b > r + 20 && b > g + 8) return "water";
     if (r > 180 && g < 110 && b < 80) return "lava";
-    if (g > 120 && r < 110 && b < 110) return "rough";
+    if (g > 120 && r < 110 && b < 110) return "grass";
     if (Math.abs(r - g) < 18 && Math.abs(g - b) < 18) return max > 120 ? "floor" : "wall";
     if (r > 120 && g > 70 && g < 150 && b < 95) return "floor";
     if (r > 90 && g > 55 && b < 55) return "wall";
     if (max - min < 35) return "wall";
     return "floor";
+  }
+
+  function previewSizeForImport(size) {
+    const maxSide = 180;
+    const scale = Math.min(1, maxSide / Math.max(size.width, size.height));
+    return {
+      width: Math.max(2, Math.round(size.width * scale)),
+      height: Math.max(2, Math.round(size.height * scale)),
+    };
+  }
+
+  function normalizeImportRules(rules, profile) {
+    const defaults = defaultImportRules(profile);
+    const normalized = { ...defaults };
+    if (rules && typeof rules === "object") {
+      importRuleDefs.forEach((rule) => {
+        if (tileById[rules[rule.id]]) normalized[rule.id] = rules[rule.id];
+      });
+      if (profile === "tibia-auto" && rules.orange === "lava") normalized.orange = defaults.orange;
+      if (rules.darkGreen === "rough" && defaults.darkGreen === "forest") normalized.darkGreen = "forest";
+      if (!Object.prototype.hasOwnProperty.call(rules, "green") && defaults.green) normalized.green = defaults.green;
+    }
+    return normalized;
+  }
+
+  function normalizeImportProfileId(profile, rules) {
+    if (!profile) return "tibia-auto";
+    if (profile === "tibia-dungeon" && rules && !Object.prototype.hasOwnProperty.call(rules, "green")) return "tibia-auto";
+    return importProfileDefaults[profile] ? profile : "tibia-auto";
+  }
+
+  function defaultImportRules(profile) {
+    return { ...(importProfileDefaults[profile] || importProfileDefaults["tibia-auto"]) };
+  }
+
+  function importRulesForProfile(profile) {
+    if (profile === mapState.settings.importProfile) {
+      return normalizeImportRules(mapState.settings.importRules, profile);
+    }
+    return defaultImportRules(profile);
+  }
+
+  function resolveImportProfile(crop, size, ruleCounts) {
+    const selectedProfile = normalizeImportProfileId(mapState.settings.importProfile);
+    if (selectedProfile !== "tibia-auto") return selectedProfile;
+    const total = Math.max(1, size.width * size.height);
+    const ratio = (ruleId) => (ruleCounts[ruleId] || 0) / total;
+    const greenRatio = ratio("green") + ratio("darkGreen") + ratio("lightGreen");
+    const urbanRatio = ratio("orange") + ratio("red") + ratio("stone") + ratio("sand");
+
+    if (crop.floor >= 6 && crop.floor <= 8 && ratio("orange") > 0.035 && urbanRatio > 0.38 && greenRatio > 0.035) {
+      return "tibia-city";
+    }
+    if (ratio("orange") > 0.075 && greenRatio < 0.06) return "tibia-dungeon";
+    if (crop.floor >= 6 && crop.floor <= 8) return "tibia-world";
+    return "tibia-dungeon";
+  }
+
+  function importProfileLabel(profile = mapState.settings.importProfile) {
+    return importProfileDefs.find((item) => item.id === profile)?.label || "Tibia automatico";
+  }
+
+  function resolvedImportProfileLabel(profile) {
+    const selectedProfile = normalizeImportProfileId(mapState.settings.importProfile);
+    if (selectedProfile === "tibia-auto" && profile !== "tibia-auto") {
+      return `${importProfileLabel("tibia-auto")} -> ${importProfileLabel(profile)}`;
+    }
+    return importProfileLabel(profile);
+  }
+
+  function formatImportCounts(counts) {
+    const total = Math.max(1, Object.values(counts).reduce((sum, count) => sum + count, 0));
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tileId, count]) => `${escapeHtml(tileById[tileId]?.label || tileId)} ${Math.round(count / total * 100)}%`)
+      .join(" | ") || "Sem tiles detectados.";
+  }
+
+  function rgbToHsl(r, g, b) {
+    const rn = r / 255;
+    const gn = g / 255;
+    const bn = b / 255;
+    const max = Math.max(rn, gn, bn);
+    const min = Math.min(rn, gn, bn);
+    let h = 0;
+    const l = (max + min) / 2;
+    const d = max - min;
+    const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    if (d !== 0) {
+      if (max === rn) h = 60 * (((gn - bn) / d) % 6);
+      else if (max === gn) h = 60 * ((bn - rn) / d + 2);
+      else h = 60 * ((rn - gn) / d + 4);
+    }
+    if (h < 0) h += 360;
+    return { h, s, l };
   }
 
   function addCustomMarker(point) {
@@ -1548,7 +1892,7 @@
     for (let y = 0; y < data.height; y += 1) {
       for (let x = 0; x < data.width; x += 1) {
         const tileId = data.cells[indexFor(x, y)];
-        drawDungeonTile(ctx, options.x + x * cell, options.y + y * cell, cell, tileId, options.gm);
+        drawDungeonTile(ctx, options.x + x * cell, options.y + y * cell, cell, tileId, options.gm, x, y);
       }
     }
 
@@ -1561,7 +1905,7 @@
     }
   }
 
-  function drawDungeonTile(ctx, x, y, size, tileId, gmView) {
+  function drawDungeonTile(ctx, x, y, size, tileId, gmView, gridX, gridY) {
     const tile = tileById[tileId] || tileById.empty;
     const visibleId = tileId === "secret" && !gmView ? "wall" : tileId;
     const visibleTile = tileById[visibleId] || tile;
@@ -1575,9 +1919,12 @@
 
     if (visibleId === "floor") drawFloorTexture(ctx, x, y, size);
     if (visibleId === "wall") drawWallTexture(ctx, x, y, size);
-    if (visibleId === "door") drawDoor(ctx, x, y, size);
-    if (visibleId === "secret") drawSecretDoor(ctx, x, y, size);
+    if (visibleId === "door") drawDoor(ctx, x, y, size, doorOrientation(gridX, gridY));
+    if (visibleId === "secret") drawSecretDoor(ctx, x, y, size, doorOrientation(gridX, gridY));
     if (visibleId === "water") drawWater(ctx, x, y, size);
+    if (visibleId === "acid") drawAcid(ctx, x, y, size);
+    if (visibleId === "grass") drawGrass(ctx, x, y, size);
+    if (visibleId === "forest") drawForest(ctx, x, y, size);
     if (visibleId === "lava") drawLava(ctx, x, y, size);
     if (visibleId === "rough") drawRough(ctx, x, y, size);
     if (visibleId === "trap") drawTrap(ctx, x, y, size);
@@ -1603,18 +1950,42 @@
     ctx.strokeRect(x + size * 0.08, y + size * 0.08, size * 0.84, size * 0.84);
   }
 
-  function drawDoor(ctx, x, y, size) {
+  function drawDoor(ctx, x, y, size, orientation) {
     ctx.fillStyle = tileById.floor.color;
     ctx.fillRect(x, y, size, size);
-    ctx.fillStyle = "#6e341b";
-    ctx.fillRect(x + size * 0.18, y + size * 0.38, size * 0.64, size * 0.24);
-    ctx.strokeStyle = "#2a130a";
-    ctx.lineWidth = Math.max(1, size * 0.035);
-    ctx.strokeRect(x + size * 0.18, y + size * 0.38, size * 0.64, size * 0.24);
+    drawDoorPanel(ctx, x, y, size, orientation);
   }
 
-  function drawSecretDoor(ctx, x, y, size) {
+  function drawDoorPanel(ctx, x, y, size, orientation) {
+    const angles = {
+      horizontal: 0,
+      vertical: Math.PI / 2,
+      diagonalDown: Math.PI / 4,
+      diagonalUp: -Math.PI / 4,
+    };
+    const angle = angles[orientation] ?? 0;
+    ctx.save();
+    ctx.translate(x + size / 2, y + size / 2);
+    ctx.rotate(angle);
+    ctx.fillStyle = "#6e341b";
+    roundedRect(ctx, -size * 0.38, -size * 0.13, size * 0.76, size * 0.26, Math.max(1, size * 0.04));
+    ctx.fill();
+    ctx.strokeStyle = "#2a130a";
+    ctx.lineWidth = Math.max(1, size * 0.035);
+    ctx.stroke();
+    ctx.fillStyle = "#d7aa48";
+    ctx.beginPath();
+    ctx.arc(size * 0.24, 0, Math.max(1.3, size * 0.045), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSecretDoor(ctx, x, y, size, orientation) {
     drawWallTexture(ctx, x, y, size);
+    ctx.save();
+    ctx.globalAlpha = 0.42;
+    drawDoorPanel(ctx, x, y, size, orientation);
+    ctx.restore();
     ctx.fillStyle = "rgba(255, 224, 161, 0.82)";
     ctx.font = `700 ${Math.max(11, size * 0.44)}px Georgia`;
     ctx.textAlign = "center";
@@ -1622,6 +1993,41 @@
     ctx.fillText("S", x + size / 2, y + size / 2);
     ctx.textAlign = "start";
     ctx.textBaseline = "alphabetic";
+  }
+
+  function doorOrientation(gridX, gridY) {
+    if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) return "horizontal";
+
+    const openWest = isDoorConnectionTile(dungeonTileAt(gridX - 1, gridY));
+    const openEast = isDoorConnectionTile(dungeonTileAt(gridX + 1, gridY));
+    const openNorth = isDoorConnectionTile(dungeonTileAt(gridX, gridY - 1));
+    const openSouth = isDoorConnectionTile(dungeonTileAt(gridX, gridY + 1));
+    const openNorthWest = isDoorConnectionTile(dungeonTileAt(gridX - 1, gridY - 1));
+    const openSouthEast = isDoorConnectionTile(dungeonTileAt(gridX + 1, gridY + 1));
+    const openNorthEast = isDoorConnectionTile(dungeonTileAt(gridX + 1, gridY - 1));
+    const openSouthWest = isDoorConnectionTile(dungeonTileAt(gridX - 1, gridY + 1));
+
+    const horizontalScore = Number(openWest) + Number(openEast);
+    const verticalScore = Number(openNorth) + Number(openSouth);
+    const diagonalDownScore = Number(openNorthWest) + Number(openSouthEast);
+    const diagonalUpScore = Number(openNorthEast) + Number(openSouthWest);
+
+    if (diagonalDownScore === 2 && horizontalScore < 2 && verticalScore < 2) return "diagonalDown";
+    if (diagonalUpScore === 2 && horizontalScore < 2 && verticalScore < 2) return "diagonalUp";
+    if (verticalScore > horizontalScore) return "vertical";
+    if (horizontalScore > verticalScore) return "horizontal";
+    if (diagonalDownScore > diagonalUpScore && diagonalDownScore > 0) return "diagonalDown";
+    if (diagonalUpScore > diagonalDownScore && diagonalUpScore > 0) return "diagonalUp";
+    return "horizontal";
+  }
+
+  function dungeonTileAt(x, y) {
+    if (!inDungeon(x, y)) return "empty";
+    return dungeonState.data.cells[indexFor(x, y)] || "empty";
+  }
+
+  function isDoorConnectionTile(tileId) {
+    return tileId !== "empty" && tileId !== "wall" && Boolean(tileById[tileId]);
   }
 
   function drawWater(ctx, x, y, size) {
@@ -1636,6 +2042,44 @@
     ctx.moveTo(x + size * 0.08, y + size * 0.66);
     ctx.quadraticCurveTo(x + size * 0.30, y + size * 0.48, x + size * 0.54, y + size * 0.66);
     ctx.quadraticCurveTo(x + size * 0.72, y + size * 0.80, x + size * 0.94, y + size * 0.64);
+    ctx.stroke();
+  }
+
+  function drawAcid(ctx, x, y, size) {
+    ctx.fillStyle = "rgba(222, 255, 82, 0.24)";
+    for (let i = 0; i < 3; i += 1) {
+      ctx.beginPath();
+      ctx.arc(x + size * (0.24 + i * 0.22), y + size * (0.36 + (i % 2) * 0.22), size * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(30, 72, 20, 0.36)";
+    ctx.lineWidth = Math.max(1, size * 0.025);
+    ctx.strokeRect(x + size * 0.12, y + size * 0.12, size * 0.76, size * 0.76);
+  }
+
+  function drawGrass(ctx, x, y, size) {
+    ctx.strokeStyle = "rgba(205, 239, 145, 0.34)";
+    ctx.lineWidth = Math.max(1, size * 0.026);
+    for (const [px, py] of [[0.25, 0.62], [0.46, 0.42], [0.69, 0.68]]) {
+      ctx.beginPath();
+      ctx.moveTo(x + size * px, y + size * py);
+      ctx.quadraticCurveTo(x + size * (px + 0.04), y + size * (py - 0.15), x + size * (px + 0.12), y + size * (py - 0.05));
+      ctx.stroke();
+    }
+  }
+
+  function drawForest(ctx, x, y, size) {
+    ctx.fillStyle = "rgba(8, 30, 15, 0.30)";
+    for (const [px, py, r] of [[0.28, 0.34, 0.14], [0.50, 0.50, 0.18], [0.70, 0.32, 0.13], [0.35, 0.72, 0.12]]) {
+      ctx.beginPath();
+      ctx.arc(x + size * px, y + size * py, size * r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(212, 229, 161, 0.22)";
+    ctx.lineWidth = Math.max(1, size * 0.022);
+    ctx.beginPath();
+    ctx.moveTo(x + size * 0.18, y + size * 0.82);
+    ctx.lineTo(x + size * 0.80, y + size * 0.18);
     ctx.stroke();
   }
 

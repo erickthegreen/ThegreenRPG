@@ -127,10 +127,28 @@
           <div class="section-title">Recorte para Masmorra</div>
           <label class="field-label" for="mapImportMaxSize">Limite do maior lado em quadrados</label>
           <input id="mapImportMaxSize" type="number" min="20" max="500" step="10" value="240" />
+
+          <label class="field-label" for="mapImportProfile">Perfil de importacao</label>
+          <select id="mapImportProfile">
+            <option value="tibia-auto">Tibia automatico</option>
+            <option value="tibia-dungeon">Tibia dungeon</option>
+            <option value="tibia-world">Tibia mundo</option>
+            <option value="tibia-city">Tibia cidade</option>
+            <option value="generic">Imagem generica</option>
+          </select>
+
+          <label class="check-row"><input id="mapImportUsePaint" type="checkbox" checked /> Incluir pinturas do mapa</label>
+
           <div id="mapCropReadout" class="scale-output">
             <span>Use a ferramenta <strong>Recorte</strong> e arraste no mapa.</span>
           </div>
+          <canvas id="mapImportPreviewCanvas" class="import-preview" aria-label="Previa da conversao para masmorra"></canvas>
+          <div id="mapImportSummary" class="scale-output">
+            <span>Nenhum recorte para pre-visualizar.</span>
+          </div>
+          <div id="mapImportRules" class="import-rule-list"></div>
           <div class="button-row">
+            <button type="button" id="resetImportProfileBtn">Restaurar perfil</button>
             <button type="button" id="sendCropDungeonBtn">Enviar para Masmorras</button>
             <button type="button" id="clearMapCropBtn">Limpar recorte</button>
           </div>
