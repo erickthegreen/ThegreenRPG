@@ -5,10 +5,13 @@
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const STORAGE_KEY = "danubia-mesa-tools-v1";
+  const APP_MODES = ["map", "city", "dungeon", "mesa"];
   const DUNGEON_MAX_SIZE = 500;
   const DUNGEON_EXPORT_MIN_CELL = 8;
   const DUNGEON_EXPORT_MAX_CELL = 180;
   const DUNGEON_EXPORT_MAX_SIDE = 8192;
+  const FANTASY_CITY_TARGET_DENSITY = 20000;
+  const FANTASY_CITY_MIN_KM2 = 10;
 
   const assets = {
     mapBase: "https://tibiamaps.github.io/tibia-map-data",
@@ -69,6 +72,26 @@
     { id: "tibia-city", label: "Tibia cidade" },
     { id: "generic", label: "Imagem generica" },
   ];
+  const THAIS_ILLUSTRATED_SRC = "thais.jpg";
+  const THAIS_ILLUSTRATED_ASPECT = 1536 / 2048;
+  const TERRAIN_SPRITE_KIND = {
+    grass: "grass",
+    cobble: "stone",
+    water: "water",
+    sand: "sand",
+    dirt: "dirt",
+    snow: "snow",
+    lava: "lava",
+    swamp: "swamp",
+  };
+  const MARKER_SPRITE_TYPE = {
+    marker_pin: "Ponto",
+    marker_danger: "Perigo",
+    marker_treasure: "Tesouro",
+    marker_monster: "Perigo",
+    marker_temple: "Templo",
+  };
+  let thaisIllustratedImage = null;
 
   const importRuleDefs = [
     { id: "void", label: "Preto / vazio", color: "#171717" },
@@ -162,6 +185,9 @@
   const mapEditCache = document.createElement("canvas");
   const mapEditCacheCtx = mapEditCache.getContext("2d");
   let mapEditCacheDirty = true;
+  const fantasyMapCanvas = document.createElement("canvas");
+  const fantasyMapCtx = fantasyMapCanvas.getContext("2d");
+  let fantasyMapCacheKey = "";
 
   let activeMode = "map";
   let persisted = loadPersistedState();
@@ -184,6 +210,7 @@
     customMarkers: persisted.map?.customMarkers || [],
     editStrokes: normalizeMapStrokes(persisted.map?.editStrokes),
     redoStrokes: [],
+    fantasyMap: normalizeFantasyMap(persisted.map?.fantasyMap),
     settings: {
       gridPx: persisted.map?.settings?.gridPx || 64,
       metersPerTile: persisted.map?.settings?.metersPerTile || 1.5,
@@ -245,6 +272,7 @@
       densityMode: persisted.city?.settings?.densityMode || "high",
       labelMode: persisted.city?.settings?.labelMode || "clean",
       buildingMode: persisted.city?.settings?.buildingMode || "symbols",
+      referenceMode: persisted.city?.settings?.referenceMode || "generated",
       gridMeters: persisted.city?.settings?.gridMeters || 250,
       exportWidth: persisted.city?.settings?.exportWidth || 3600,
       tool: persisted.city?.settings?.tool || "pan",
@@ -283,6 +311,7 @@
     if (!cityState.data || cityState.data.mapVersion !== 3) generateCity();
     else {
       ensureCityManual(cityState.data);
+      if (cityState.settings.referenceMode === "thais") applyThaisIllustratedDimensions();
       renderCityLists();
     }
 
@@ -322,13 +351,13 @@
 
   function hashMode() {
     const mode = location.hash.replace("#", "");
-    return ["map", "city", "dungeon"].includes(mode) ? mode : "map";
+    return APP_MODES.includes(mode) ? mode : "map";
   }
 
   function setActiveMode(mode, updateHash) {
-    activeMode = ["map", "city", "dungeon"].includes(mode) ? mode : "map";
+    activeMode = APP_MODES.includes(mode) ? mode : "map";
     $$(".mode-tab").forEach((item) => item.classList.toggle("active", item.dataset.mode === activeMode));
-    ["map", "city", "dungeon"].forEach((panel) => {
+    APP_MODES.forEach((panel) => {
       $(`[data-panel='${panel}']`)?.classList.toggle("is-hidden", activeMode !== panel);
       $(`#${panel}Frame`)?.classList.toggle("active", activeMode === panel);
       $$(`[data-info='${panel}']`).forEach((node) => node.classList.toggle("is-hidden", activeMode !== panel));
@@ -368,6 +397,8 @@
       fitMap();
       renderSelectedMarker();
     });
+    $("#generateFantasyMapBtn").addEventListener("click", generateFantasyWorldMap);
+    $("#clearFantasyMapBtn").addEventListener("click", clearFantasyWorldMap);
     $("#mapDownloadBtn").addEventListener("click", downloadMapPng);
 
     $("#mapFloor").addEventListener("change", (event) => {
@@ -507,6 +538,7 @@
     $("#loadDungeonFile").addEventListener("change", loadDungeonJson);
     $("#downloadDungeonBtn").addEventListener("click", () => downloadDungeonPng(true));
     $("#downloadPlayerDungeonBtn").addEventListener("click", () => downloadDungeonPng(false));
+    $("#sendDungeonMesaBtn").addEventListener("click", sendDungeonToMesa);
 
     $$("[data-dungeon-mode]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -562,13 +594,24 @@
   function bindCityControls() {
     $("#generateCityBtn").addEventListener("click", () => {
       readCitySettings();
+      cityState.settings.referenceMode = "generated";
       generateCity();
       persistSoon();
     });
     $("#randomCitySeedBtn").addEventListener("click", () => {
       $("#cityMapSeed").value = `${$("#cityMapName").value.trim() || "cidade"}-${Date.now().toString(36)}`;
       readCitySettings();
+      cityState.settings.referenceMode = "generated";
       generateCity();
+      persistSoon();
+    });
+    $("#loadThaisIllustratedBtn").addEventListener("click", loadThaisIllustratedCity);
+    $("#useGeneratedCityBtn").addEventListener("click", () => {
+      readCitySettings();
+      cityState.settings.referenceMode = "generated";
+      generateCity();
+      syncCityInputs();
+      fitCity();
       persistSoon();
     });
     $("#fitCityBtn").addEventListener("click", fitCity);
@@ -578,13 +621,10 @@
 
     $$("[data-city-tool]").forEach((button) => {
       button.addEventListener("click", () => {
-        finishCityDrawing();
-        cityState.settings.tool = button.dataset.cityTool;
-        $$("[data-city-tool]").forEach((item) => item.classList.toggle("active", item === button));
-        persistSoon();
-        renderCity();
+        setCityTool(button.dataset.cityTool);
       });
     });
+    document.addEventListener("danubia:sprite-selected", handleCitySpriteSelected);
 
     [
       "#cityMapName",
@@ -638,6 +678,94 @@
     cityCanvas.addEventListener("pointermove", handleCityPointerMove);
     cityCanvas.addEventListener("pointerup", handleCityPointerUp);
     cityCanvas.addEventListener("pointercancel", handleCityPointerUp);
+    cityCanvas.addEventListener("contextmenu", (event) => event.preventDefault());
+  }
+
+  function setCityTool(tool, options = {}) {
+    const allowed = ["pan", "terrain", "building", "road", "marker", "erase"];
+    finishCityDrawing();
+    cityState.settings.tool = allowed.includes(tool) ? tool : "pan";
+    updateCityToolButtons();
+    updateCityManualControls();
+    if (options.render !== false) renderCity();
+    if (options.persist !== false) persistSoon();
+  }
+
+  function updateCityToolButtons() {
+    $$("[data-city-tool]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.cityTool === cityState.settings.tool);
+    });
+  }
+
+  function updateCityManualControls() {
+    const tool = cityState.settings.tool;
+    const terrain = $("#cityTerrainKind");
+    const building = $("#cityBuildingKind");
+    const brush = $("#cityBrushMeters");
+    const road = $("#cityRoadWidth");
+    const markerName = $("#cityMarkerName");
+    const markerType = $("#cityMarkerType");
+    if (terrain) terrain.disabled = tool !== "terrain";
+    if (building) building.disabled = tool !== "building";
+    if (brush) brush.disabled = !["terrain", "erase"].includes(tool);
+    if (road) road.disabled = tool !== "road";
+    if (markerName) markerName.disabled = tool !== "marker";
+    if (markerType) markerType.disabled = tool !== "marker";
+    if (cityCanvas) {
+      cityCanvas.style.cursor = {
+        pan: "grab",
+        terrain: "crosshair",
+        road: "crosshair",
+        building: "copy",
+        marker: "copy",
+        erase: "not-allowed",
+      }[tool] || "crosshair";
+    }
+  }
+
+  function handleCitySpriteSelected(event) {
+    const { spriteId, sprite } = event.detail || {};
+    if (!spriteId || !sprite) return;
+
+    if (spriteId === "road") {
+      setCityTool("road", { render: false, persist: false });
+      renderCity();
+      persistSoon();
+      return;
+    }
+
+    if (sprite.group === "terrain") {
+      const terrainKind = TERRAIN_SPRITE_KIND[spriteId] || "grass";
+      const terrainSelect = $("#cityTerrainKind");
+      if (terrainSelect && [...terrainSelect.options].some((option) => option.value === terrainKind)) {
+        terrainSelect.value = terrainKind;
+      }
+      cityState.settings.terrainKind = terrainKind;
+      setCityTool("terrain", { render: false, persist: false });
+      renderCity();
+      persistSoon();
+      return;
+    }
+
+    if (sprite.group === "marker") {
+      const type = MARKER_SPRITE_TYPE[spriteId] || "Ponto";
+      $("#cityMarkerType").value = type;
+      cityState.settings.markerType = type;
+      setCityTool("marker", { render: false, persist: false });
+      renderCity();
+      persistSoon();
+      return;
+    }
+
+    const mapped = sprite.cityKind || "house";
+    const buildingSelect = $("#cityBuildingKind");
+    if (buildingSelect && [...buildingSelect.options].some((option) => option.value === mapped)) {
+      buildingSelect.value = mapped;
+    }
+    cityState.settings.buildingKind = mapped;
+    setCityTool("building", { render: false, persist: false });
+    renderCity();
+    persistSoon();
   }
 
   function syncCityInputs() {
@@ -657,7 +785,8 @@
     $("#cityRoadWidth").value = cityState.settings.roadWidth;
     $("#cityMarkerName").value = cityState.settings.markerName;
     $("#cityMarkerType").value = cityState.settings.markerType;
-    $$("[data-city-tool]").forEach((button) => button.classList.toggle("active", button.dataset.cityTool === cityState.settings.tool));
+    updateCityToolButtons();
+    updateCityManualControls();
     $("#showCityGrid").checked = cityState.settings.showGrid;
     $("#showCityWalls").checked = cityState.settings.showWalls;
     $("#showCityBuildings").checked = cityState.settings.showBuildings;
@@ -666,6 +795,8 @@
     $("#showCityMarkerLabels").checked = cityState.settings.showMarkerLabels;
     $("#showCityDistrictLabels").checked = cityState.settings.showDistrictLabels;
     $("#showCityFields").checked = cityState.settings.showFields;
+    $("#loadThaisIllustratedBtn").classList.toggle("active", cityState.settings.referenceMode === "thais");
+    $("#useGeneratedCityBtn").classList.toggle("active", cityState.settings.referenceMode !== "thais");
   }
 
   function readCitySettings() {
@@ -732,9 +863,11 @@
     } else if (activeMode === "dungeon") {
       resizeCanvas(dungeonCanvas, dungeonCtx);
       renderDungeon();
-    } else {
+    } else if (activeMode === "city") {
       resizeCanvas(cityCanvas, cityCtx);
       renderCity();
+    } else if (window.MesaCombate?.render) {
+      window.MesaCombate.render();
     }
   }
 
@@ -763,11 +896,26 @@
 
   function fitMap() {
     if (!mapState.ready) return;
+    if (mapState.fantasyMap) {
+      fitMapToBounds(mapState.fantasyMap.bounds);
+      return;
+    }
     const size = canvasSize(mapCanvas);
     const scale = Math.min(size.width / mapImage.width, size.height / mapImage.height) * 0.94;
     mapState.view.scale = scale;
     mapState.view.x = (size.width - mapImage.width * scale) / 2;
     mapState.view.y = (size.height - mapImage.height * scale) / 2;
+    persistSoon();
+    renderMap();
+  }
+
+  function fitMapToBounds(bounds) {
+    if (!bounds || bounds.w <= 0 || bounds.h <= 0) return;
+    const size = canvasSize(mapCanvas);
+    const scale = Math.min(size.width / bounds.w, size.height / bounds.h) * 0.90;
+    mapState.view.scale = clamp(scale, 0.06, 5);
+    mapState.view.x = size.width / 2 - (bounds.x + bounds.w / 2) * mapState.view.scale;
+    mapState.view.y = size.height / 2 - (bounds.y + bounds.h / 2) * mapState.view.scale;
     persistSoon();
     renderMap();
   }
@@ -803,6 +951,7 @@
     const view = mapState.view;
     mapCtx.imageSmoothingEnabled = mapState.view.scale < 1;
     mapCtx.drawImage(mapImage, view.x, view.y, mapImage.width * view.scale, mapImage.height * view.scale);
+    drawFantasyWorldMapScreen(mapCtx);
     drawMapEditsScreen(mapCtx);
 
     if (mapState.settings.showCityFootprint) drawCityFootprintScreen(mapCtx);
@@ -831,14 +980,10 @@
   }
 
   function drawCityFootprintScreen(ctx) {
-    const info = cityScaleInfo();
-    if (!info || !Number.isFinite(info.sideTiles)) return;
-    const centerPlace = findPlace(mapState.selectedId) || findPlace("thais") || builtInPlaces.find((place) => place.floor === mapState.floor);
-    if (!centerPlace) return;
-    const center = placePoint(centerPlace);
-    const side = info.sideTiles;
-    const topLeft = mapImageToScreen({ x: center.x - side / 2, y: center.y - side / 2 });
-    const size = side * mapState.view.scale;
+    const bounds = cityFootprintBounds();
+    if (!bounds) return;
+    const topLeft = mapImageToScreen({ x: bounds.x, y: bounds.y });
+    const size = bounds.w * mapState.view.scale;
 
     ctx.save();
     ctx.fillStyle = "rgba(210, 173, 85, 0.10)";
@@ -849,7 +994,7 @@
     ctx.strokeRect(topLeft.x, topLeft.y, size, size);
     ctx.setLineDash([]);
     ctx.font = "700 14px Georgia";
-    const label = `${info.displayAreaKm2.toFixed(info.displayAreaKm2 < 100 ? 1 : 0)} km²`;
+    const label = `${bounds.areaKm2.toFixed(bounds.areaKm2 < 100 ? 1 : 0)} km²`;
     const width = ctx.measureText(label).width + 16;
     roundedRect(ctx, topLeft.x + 8, topLeft.y + 8, width, 24, 5);
     ctx.fillStyle = "rgba(24, 19, 14, 0.88)";
@@ -858,6 +1003,64 @@
     ctx.stroke();
     ctx.fillStyle = "#ffe0a1";
     ctx.fillText(label, topLeft.x + 16, topLeft.y + 25);
+    ctx.restore();
+  }
+
+  function cityFootprintBounds() {
+    const info = cityScaleInfo();
+    if (!info || !Number.isFinite(info.sideTiles)) return null;
+    const centerPlace = findPlace(mapState.selectedId) || findPlace("thais") || builtInPlaces.find((place) => place.floor === mapState.floor);
+    if (!centerPlace) return null;
+    const center = placePoint(centerPlace);
+    const side = info.sideTiles;
+    return {
+      x: center.x - side / 2,
+      y: center.y - side / 2,
+      w: side,
+      h: side,
+      cx: center.x,
+      cy: center.y,
+      floor: mapState.floor,
+      areaKm2: info.displayAreaKm2,
+      sideKm: info.sideKm,
+    };
+  }
+
+  function drawFantasyWorldMapScreen(ctx) {
+    if (!mapState.fantasyMap || mapState.fantasyMap.floor !== mapState.floor) return;
+    rebuildFantasyMapCanvasIfNeeded();
+    if (!fantasyMapCanvas.width || !fantasyMapCanvas.height) return;
+    const bounds = mapState.fantasyMap.bounds;
+    const topLeft = mapImageToScreen({ x: bounds.x, y: bounds.y });
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(fantasyMapCanvas, topLeft.x, topLeft.y, bounds.w * mapState.view.scale, bounds.h * mapState.view.scale);
+    ctx.strokeStyle = "rgba(255, 224, 161, 0.48)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(topLeft.x, topLeft.y, bounds.w * mapState.view.scale, bounds.h * mapState.view.scale);
+    ctx.restore();
+  }
+
+  function drawFantasyWorldMapNatural(ctx, sourceRect, outputWidth, outputHeight) {
+    if (!mapState.fantasyMap || mapState.fantasyMap.floor !== mapState.floor) return;
+    rebuildFantasyMapCanvasIfNeeded();
+    if (!fantasyMapCanvas.width || !fantasyMapCanvas.height) return;
+    const bounds = mapState.fantasyMap.bounds;
+    const scaleX = outputWidth / sourceRect.w;
+    const scaleY = outputHeight / sourceRect.h;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      fantasyMapCanvas,
+      0,
+      0,
+      fantasyMapCanvas.width,
+      fantasyMapCanvas.height,
+      (bounds.x - sourceRect.x) * scaleX,
+      (bounds.y - sourceRect.y) * scaleY,
+      bounds.w * scaleX,
+      bounds.h * scaleY
+    );
     ctx.restore();
   }
 
@@ -899,28 +1102,553 @@
     ctx.restore();
   }
 
+  function generateFantasyWorldMap() {
+    if (!mapState.ready) return;
+    const bounds = cityFootprintBounds();
+    if (!bounds) return;
+    const population = Math.max(1, Number(mapState.settings.cityPopulation) || 200000);
+    const urbanKm2 = clamp(Math.max(FANTASY_CITY_MIN_KM2, population / FANTASY_CITY_TARGET_DENSITY), 10, bounds.areaKm2 * 0.72);
+    mapState.fantasyMap = {
+      version: 2,
+      floor: mapState.floor,
+      seed: Math.floor(Date.now() % 2147483647),
+      resolution: clamp(Math.round(bounds.w / 2.2), 1200, 1600),
+      bounds: {
+        x: Math.round(bounds.x * 10) / 10,
+        y: Math.round(bounds.y * 10) / 10,
+        w: Math.round(bounds.w * 10) / 10,
+        h: Math.round(bounds.h * 10) / 10,
+      },
+      areaKm2: Math.round(bounds.areaKm2 * 10) / 10,
+      urbanKm2: Math.round(urbanKm2 * 10) / 10,
+      population: Math.round(population),
+    };
+    fantasyMapCacheKey = "";
+    fitMapToBounds(mapState.fantasyMap.bounds);
+    persistSoon();
+    renderMap();
+  }
+
+  function clearFantasyWorldMap() {
+    mapState.fantasyMap = null;
+    fantasyMapCanvas.width = 0;
+    fantasyMapCanvas.height = 0;
+    fantasyMapCacheKey = "";
+    persistSoon();
+    renderMap();
+  }
+
+  function rebuildFantasyMapCanvasIfNeeded() {
+    const map = mapState.fantasyMap;
+    if (!map) return;
+    const key = `${map.version}:${map.floor}:${map.seed}:${map.resolution}:${map.bounds.x}:${map.bounds.y}:${map.bounds.w}:${map.bounds.h}:${map.urbanKm2 || 0}:${map.population || 0}`;
+    if (fantasyMapCacheKey === key && fantasyMapCanvas.width === map.resolution) return;
+    renderFantasyMapRaster(map);
+    fantasyMapCacheKey = key;
+  }
+
+  function renderFantasyMapRaster(map) {
+    const size = clamp(Math.round(map.resolution || 1200), 512, 1600);
+    fantasyMapCanvas.width = size;
+    fantasyMapCanvas.height = size;
+    fantasyMapCtx.imageSmoothingEnabled = false;
+    const image = fantasyMapCtx.createImageData(size, size);
+    const data = image.data;
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const terrain = fantasyTerrainAt(x / size, y / size, map.seed);
+        const offset = (y * size + x) * 4;
+        data[offset] = terrain[0];
+        data[offset + 1] = terrain[1];
+        data[offset + 2] = terrain[2];
+        data[offset + 3] = 255;
+      }
+    }
+    fantasyMapCtx.putImageData(image, 0, 0);
+    const cities = fantasyCityLayout(map.seed, size, map);
+    drawFantasyFarms(fantasyMapCtx, size, map.seed, cities);
+    drawFantasyRivers(fantasyMapCtx, size, map.seed, cities);
+    drawFantasyRoads(fantasyMapCtx, size, cities);
+    cities.forEach((city) => drawFantasyCity(fantasyMapCtx, size, city, map.seed));
+    drawFantasyOutposts(fantasyMapCtx, size, map.seed);
+  }
+
+  function fantasyTerrainAt(nx, ny, seed) {
+    const dx = (nx - 0.52) * 1.72;
+    const dy = (ny - 0.50) * 1.48;
+    const edge = Math.sqrt(dx * dx + dy * dy);
+    const height = 0.78 - edge + fbm(nx * 3.2 + 8, ny * 3.2 - 4, seed, 5) * 0.54;
+    const rough = fbm(nx * 14.5, ny * 14.5, seed + 41, 3);
+    const forest = fbm(nx * 26, ny * 26, seed + 97, 3);
+    const biome = fbm(nx * 5.3 - 2, ny * 5.3 + 9, seed + 231, 3);
+
+    if (height < 0.13) return rough > 0.58 ? [62, 111, 141] : [70, 120, 151];
+    if (height < 0.18) return [238, 194, 132];
+    if (height > 0.61 && rough > 0.48) return rough > 0.68 ? [92, 96, 88] : [118, 121, 108];
+    if (biome > 0.69 && height < 0.42) return [186, 143, 82];
+    if (forest > 0.61 && height > 0.25) return forest > 0.73 ? [0, 98, 18] : [0, 129, 19];
+    if (forest > 0.53 && height > 0.22) return [13, 154, 24];
+    if (rough < 0.25 && height > 0.25) return [43, 185, 42];
+    return [22, 200, 26];
+  }
+
+  function drawFantasyFarms(ctx, size, seed, cities) {
+    const rng = mulberry32(seed + 1773);
+    const capital = cities[0];
+    ctx.save();
+    for (let i = 0; i < 80; i += 1) {
+      const angle = rng() * Math.PI * 2;
+      const distance = capital.r * (1.18 + rng() * 1.05);
+      const x = Math.round(capital.x + Math.cos(angle) * distance);
+      const y = Math.round(capital.y + Math.sin(angle) * distance);
+      if (x < 20 || y < 20 || x > size - 20 || y > size - 20) continue;
+      const w = Math.round(size * (0.018 + rng() * 0.035));
+      const h = Math.round(size * (0.014 + rng() * 0.030));
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((rng() - 0.5) * 0.7);
+      ctx.fillStyle = rng() > 0.35 ? "#9d8a52" : "#6f8c47";
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+      ctx.strokeStyle = "rgba(52, 42, 22, 0.52)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-w / 2, -h / 2, w, h);
+      ctx.strokeStyle = "rgba(230, 207, 138, 0.36)";
+      for (let stripe = -h / 2 + 4; stripe < h / 2; stripe += 6) {
+        ctx.beginPath();
+        ctx.moveTo(-w / 2 + 2, stripe);
+        ctx.lineTo(w / 2 - 2, stripe);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawFantasyRivers(ctx, size, seed, cities) {
+    const rng = mulberry32(seed + 1129);
+    const capital = cities?.[0] || { x: size * 0.5, y: size * 0.5, r: size * 0.28 };
+    ctx.save();
+    ctx.lineCap = "square";
+    ctx.strokeStyle = "#376f92";
+    ctx.lineWidth = Math.max(16, Math.round(size * 0.024));
+    ctx.beginPath();
+    ctx.moveTo(-30, Math.round(capital.y - capital.r * 0.55));
+    ctx.bezierCurveTo(
+      Math.round(size * 0.16),
+      Math.round(capital.y - capital.r * 0.35),
+      Math.round(size * 0.22),
+      Math.round(capital.y + capital.r * 0.72),
+      Math.round(capital.x - capital.r * 0.94),
+      Math.round(capital.y + capital.r * 0.56)
+    );
+    ctx.bezierCurveTo(
+      Math.round(size * 0.42),
+      Math.round(size * 0.78),
+      Math.round(size * 0.68),
+      Math.round(size * 0.72),
+      size + 30,
+      Math.round(size * (0.70 + rng() * 0.10))
+    );
+    ctx.stroke();
+    ctx.strokeStyle = "#5a93ad";
+    ctx.lineWidth = Math.max(3, Math.round(size * 0.004));
+    ctx.stroke();
+
+    for (let i = 0; i < 2; i += 1) {
+      ctx.strokeStyle = "#3e7696";
+      ctx.lineWidth = Math.max(4, Math.round(size * (0.008 + rng() * 0.004)));
+      ctx.beginPath();
+      ctx.moveTo(Math.round(size * (0.68 + rng() * 0.16)), -20);
+      ctx.bezierCurveTo(size * (0.54 + rng() * 0.12), size * 0.28, size * (0.66 + rng() * 0.10), size * 0.55, size * (0.72 + rng() * 0.16), size + 20);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function fantasyCityLayout(seed, size, map) {
+    const rng = mulberry32(seed + 503);
+    const totalKm2 = Math.max(FANTASY_CITY_MIN_KM2, Number(map.areaKm2) || 35);
+    const urbanKm2 = clamp(Number(map.urbanKm2) || FANTASY_CITY_MIN_KM2, FANTASY_CITY_MIN_KM2, totalKm2 * 0.72);
+    const capitalRadius = clamp(Math.sqrt((urbanKm2 / totalKm2) / Math.PI), 0.24, 0.36);
+    const base = [
+      { x: 0.50, y: 0.50, r: capitalRadius, capital: true, urbanKm2 },
+      { x: 0.17, y: 0.26, r: 0.055 },
+      { x: 0.83, y: 0.25, r: 0.060 },
+      { x: 0.18, y: 0.78, r: 0.056 },
+      { x: 0.82, y: 0.76, r: 0.058 },
+      { x: 0.50, y: 0.12, r: 0.048 },
+      { x: 0.52, y: 0.90, r: 0.046 },
+      { x: 0.08, y: 0.52, r: 0.040 },
+      { x: 0.92, y: 0.52, r: 0.042 },
+    ];
+    return base.map((city, index) => ({
+      ...city,
+      x: Math.round(size * clamp(city.x + (rng() - 0.5) * (city.capital ? 0.018 : 0.050), city.capital ? 0.40 : 0.06, city.capital ? 0.60 : 0.94)),
+      y: Math.round(size * clamp(city.y + (rng() - 0.5) * (city.capital ? 0.018 : 0.050), city.capital ? 0.40 : 0.06, city.capital ? 0.60 : 0.94)),
+      r: Math.round(size * city.r),
+      index,
+    }));
+  }
+
+  function drawFantasyRoads(ctx, size, cities) {
+    const capital = cities[0];
+    ctx.save();
+    ctx.lineCap = "square";
+    ctx.lineJoin = "miter";
+    cities.slice(1).forEach((city) => {
+      ctx.strokeStyle = "#705c3a";
+      ctx.lineWidth = Math.max(4, Math.round(size * 0.009));
+      ctx.beginPath();
+      ctx.moveTo(capital.x, capital.y);
+      ctx.lineTo(Math.round((capital.x + city.x) / 2 + (city.y - capital.y) * 0.04), Math.round((capital.y + city.y) / 2 + (capital.x - city.x) * 0.04));
+      ctx.lineTo(city.x, city.y);
+      ctx.stroke();
+      ctx.strokeStyle = "#c7ad68";
+      ctx.lineWidth = Math.max(2, Math.round(size * 0.0035));
+      ctx.stroke();
+    });
+    ctx.strokeStyle = "#bfa466";
+    ctx.lineWidth = Math.max(2, Math.round(size * 0.003));
+    for (let i = 0; i < 12; i += 1) {
+      const angle = i / 12 * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(capital.x, capital.y);
+      ctx.lineTo(Math.round(capital.x + Math.cos(angle) * capital.r * 1.18), Math.round(capital.y + Math.sin(angle) * capital.r * 1.02));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawFantasyCity(ctx, size, city, seed) {
+    const rng = mulberry32(seed + city.index * 991);
+    const r = city.r;
+    const x = city.x;
+    const y = city.y;
+    if (!city.capital) {
+      drawFantasySatelliteTown(ctx, city, rng);
+      return;
+    }
+
+    const rx = r * 1.08;
+    const ry = r * 0.86;
+    ctx.save();
+    ctx.fillStyle = "#6f7469";
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawCityDistrictGround(ctx, x, y, rx, ry, rng);
+    drawCityRoadNetwork(ctx, x, y, rx, ry, r);
+    drawDenseBuildings(ctx, x, y, rx, ry, r, rng);
+    drawFantasyHarbor(ctx, x - rx * 0.95, y + ry * 0.35, r, rng);
+    drawFantasyCastle(ctx, x, y - ry * 0.52, r, rng);
+    drawFantasyCityWalls(ctx, x, y, rx, ry, r);
+    ctx.restore();
+  }
+
+  function drawFantasySatelliteTown(ctx, city, rng) {
+    const r = city.r;
+    const x = city.x;
+    const y = city.y;
+    ctx.save();
+    ctx.fillStyle = "#756f5d";
+    ctx.fillRect(Math.round(x - r * 0.90), Math.round(y - r * 0.70), Math.round(r * 1.80), Math.round(r * 1.40));
+    ctx.strokeStyle = "#d64c24";
+    ctx.lineWidth = Math.max(2, Math.round(r * 0.06));
+    ctx.strokeRect(Math.round(x - r * 0.86), Math.round(y - r * 0.66), Math.round(r * 1.72), Math.round(r * 1.32));
+    ctx.strokeStyle = "#c4a463";
+    ctx.lineWidth = Math.max(1, Math.round(r * 0.035));
+    ctx.beginPath();
+    ctx.moveTo(x - r * 0.74, y);
+    ctx.lineTo(x + r * 0.74, y);
+    ctx.moveTo(x, y - r * 0.56);
+    ctx.lineTo(x, y + r * 0.56);
+    ctx.stroke();
+    for (let i = 0; i < 90; i += 1) {
+      const bx = Math.round(x - r * 0.72 + rng() * r * 1.44);
+      const by = Math.round(y - r * 0.52 + rng() * r * 1.04);
+      const bw = Math.max(3, Math.round(r * (0.07 + rng() * 0.08)));
+      const bh = Math.max(3, Math.round(r * (0.055 + rng() * 0.07)));
+      drawFantasyHouse(ctx, bx, by, bw, bh, rng);
+    }
+    drawFantasyTower(ctx, x - r * 0.84, y - r * 0.64, r * 0.12);
+    drawFantasyTower(ctx, x + r * 0.84, y - r * 0.64, r * 0.12);
+    drawFantasyTower(ctx, x - r * 0.84, y + r * 0.64, r * 0.12);
+    drawFantasyTower(ctx, x + r * 0.84, y + r * 0.64, r * 0.12);
+    ctx.restore();
+  }
+
+  function drawCityDistrictGround(ctx, x, y, rx, ry, rng) {
+    const colors = ["#77786d", "#817d67", "#6d7967", "#88785d", "#686f63"];
+    for (let i = 0; i < 18; i += 1) {
+      const angle = rng() * Math.PI * 2;
+      const distance = Math.sqrt(rng()) * 0.72;
+      const cx = x + Math.cos(angle) * rx * distance;
+      const cy = y + Math.sin(angle) * ry * distance;
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx * (0.20 + rng() * 0.22), ry * (0.13 + rng() * 0.20), rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawCityRoadNetwork(ctx, x, y, rx, ry, r) {
+    ctx.save();
+    ctx.strokeStyle = "#bca064";
+    ctx.lineWidth = Math.max(3, Math.round(r * 0.018));
+    for (const ring of [0.27, 0.48, 0.68, 0.84]) {
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx * ring, ry * ring, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.lineWidth = Math.max(4, Math.round(r * 0.024));
+    for (let i = 0; i < 16; i += 1) {
+      const angle = i / 16 * Math.PI * 2;
+      const cx = Math.cos(angle);
+      const sy = Math.sin(angle);
+      ctx.beginPath();
+      ctx.moveTo(x + cx * rx * 0.13, y + sy * ry * 0.13);
+      ctx.lineTo(x + cx * rx * 0.94, y + sy * ry * 0.94);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawDenseBuildings(ctx, x, y, rx, ry, r, rng) {
+    const buildingCount = Math.round(clamp(r * r * 0.008, 1200, 3400));
+    for (let i = 0; i < buildingCount; i += 1) {
+      const angle = rng() * Math.PI * 2;
+      const radius = Math.sqrt(rng()) * 0.90;
+      const nx = Math.cos(angle) * radius;
+      const ny = Math.sin(angle) * radius;
+      const roadBand = Math.abs((radius * 100) % 19 - 9.5);
+      if (roadBand < 1.4 || Math.abs(Math.sin(angle * 8)) < 0.035) continue;
+      const bx = Math.round(x + nx * rx);
+      const by = Math.round(y + ny * ry);
+      const bw = Math.max(3, Math.round(r * (0.012 + rng() * 0.021)));
+      const bh = Math.max(3, Math.round(r * (0.010 + rng() * 0.018)));
+      drawFantasyHouse(ctx, bx, by, bw, bh, rng);
+    }
+
+    for (let i = 0; i < 180; i += 1) {
+      const angle = rng() * Math.PI * 2;
+      const radius = 0.96 + rng() * 0.34;
+      const bx = Math.round(x + Math.cos(angle) * rx * radius);
+      const by = Math.round(y + Math.sin(angle) * ry * radius);
+      const bw = Math.max(3, Math.round(r * (0.010 + rng() * 0.016)));
+      const bh = Math.max(3, Math.round(r * (0.009 + rng() * 0.014)));
+      drawFantasyHouse(ctx, bx, by, bw, bh, rng, true);
+    }
+  }
+
+  function drawFantasyHouse(ctx, x, y, w, h, rng, outskirts = false) {
+    const palette = outskirts
+      ? ["#8a5b34", "#9a6739", "#c09058", "#d6b678"]
+      : ["#a85e33", "#be6f39", "#d18a45", "#e2c188", "#b85b2f"];
+    ctx.save();
+    if (rng() > 0.62) {
+      ctx.translate(x + w / 2, y + h / 2);
+      ctx.rotate((rng() - 0.5) * 0.55);
+      x = -w / 2;
+      y = -h / 2;
+    }
+    ctx.fillStyle = "#554c3f";
+    ctx.fillRect(Math.round(x + 1), Math.round(y + 1), Math.round(w), Math.round(h));
+    ctx.fillStyle = palette[Math.floor(rng() * palette.length)];
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    ctx.strokeStyle = "#ff5424";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    if (w > 7 && h > 5) {
+      ctx.fillStyle = "rgba(255, 218, 124, 0.45)";
+      ctx.fillRect(Math.round(x + w * 0.18), Math.round(y + h * 0.18), Math.max(1, Math.round(w * 0.18)), 1);
+    }
+    ctx.restore();
+  }
+
+  function drawFantasyCastle(ctx, x, y, r, rng) {
+    const w = Math.round(r * 0.58);
+    const h = Math.round(r * 0.34);
+    ctx.save();
+    ctx.fillStyle = "#878372";
+    ctx.fillRect(Math.round(x - w / 2), Math.round(y - h / 2), w, h);
+    ctx.strokeStyle = "#f04b23";
+    ctx.lineWidth = Math.max(3, Math.round(r * 0.025));
+    ctx.strokeRect(Math.round(x - w / 2), Math.round(y - h / 2), w, h);
+    drawFantasyTower(ctx, x - w / 2, y - h / 2, r * 0.08);
+    drawFantasyTower(ctx, x + w / 2, y - h / 2, r * 0.08);
+    drawFantasyTower(ctx, x - w / 2, y + h / 2, r * 0.08);
+    drawFantasyTower(ctx, x + w / 2, y + h / 2, r * 0.08);
+    for (let i = 0; i < 36; i += 1) {
+      const bx = Math.round(x - w * 0.40 + rng() * w * 0.80);
+      const by = Math.round(y - h * 0.28 + rng() * h * 0.56);
+      drawFantasyHouse(ctx, bx, by, Math.max(4, r * 0.025), Math.max(4, r * 0.020), rng);
+    }
+    ctx.restore();
+  }
+
+  function drawFantasyHarbor(ctx, x, y, r, rng) {
+    ctx.save();
+    ctx.fillStyle = "#80653c";
+    for (let i = 0; i < 8; i += 1) {
+      const px = Math.round(x + i * r * 0.10);
+      const py = Math.round(y + (i % 2) * r * 0.05);
+      ctx.fillRect(px, py, Math.round(r * 0.06), Math.round(r * 0.34));
+      ctx.strokeStyle = "#3d2814";
+      ctx.strokeRect(px, py, Math.round(r * 0.06), Math.round(r * 0.34));
+    }
+    for (let i = 0; i < 18; i += 1) {
+      drawFantasyHouse(ctx, x + r * 0.12 + rng() * r * 0.42, y - r * 0.20 + rng() * r * 0.44, r * 0.035, r * 0.026, rng);
+    }
+    ctx.restore();
+  }
+
+  function drawFantasyCityWalls(ctx, x, y, rx, ry, r) {
+    ctx.save();
+    ctx.strokeStyle = "#ff4b1f";
+    ctx.lineWidth = Math.max(5, Math.round(r * 0.035));
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "#b13923";
+    ctx.lineWidth = Math.max(2, Math.round(r * 0.012));
+    ctx.stroke();
+    for (let i = 0; i < 28; i += 1) {
+      const angle = i / 28 * Math.PI * 2;
+      drawFantasyTower(ctx, x + Math.cos(angle) * rx, y + Math.sin(angle) * ry, r * 0.045);
+    }
+    for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      const gx = x + Math.cos(angle) * rx;
+      const gy = y + Math.sin(angle) * ry;
+      ctx.fillStyle = "#bca064";
+      ctx.fillRect(Math.round(gx - r * 0.055), Math.round(gy - r * 0.035), Math.round(r * 0.11), Math.round(r * 0.07));
+      ctx.strokeStyle = "#4a2c16";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(Math.round(gx - r * 0.055), Math.round(gy - r * 0.035), Math.round(r * 0.11), Math.round(r * 0.07));
+    }
+    ctx.restore();
+  }
+
+  function drawFantasyTower(ctx, x, y, s) {
+    const size = Math.max(4, Math.round(s));
+    ctx.save();
+    ctx.fillStyle = "#837a64";
+    ctx.fillRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
+    ctx.strokeStyle = "#ff5424";
+    ctx.lineWidth = Math.max(1, Math.round(size * 0.16));
+    ctx.strokeRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
+    ctx.fillStyle = "#d9b06a";
+    ctx.fillRect(Math.round(x - size * 0.20), Math.round(y - size * 0.20), Math.max(1, Math.round(size * 0.40)), Math.max(1, Math.round(size * 0.40)));
+    ctx.restore();
+  }
+
+  function drawFantasyOutposts(ctx, size, seed) {
+    const rng = mulberry32(seed + 8081);
+    ctx.save();
+    for (let i = 0; i < 24; i += 1) {
+      const x = Math.round(size * (0.05 + rng() * 0.90));
+      const y = Math.round(size * (0.05 + rng() * 0.90));
+      const s = Math.max(5, Math.round(size * (0.008 + rng() * 0.006)));
+      ctx.fillStyle = rng() > 0.35 ? "#7d765b" : "#b6793a";
+      ctx.fillRect(x, y, s, s);
+      ctx.strokeStyle = "#ff4b1f";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, s, s);
+    }
+    ctx.restore();
+  }
+
+  function fbm(x, y, seed, octaves) {
+    let value = 0;
+    let amplitude = 0.5;
+    let frequency = 1;
+    let total = 0;
+    for (let i = 0; i < octaves; i += 1) {
+      value += valueNoise(x * frequency, y * frequency, seed + i * 1013) * amplitude;
+      total += amplitude;
+      amplitude *= 0.5;
+      frequency *= 2;
+    }
+    return value / Math.max(0.0001, total);
+  }
+
+  function valueNoise(x, y, seed) {
+    const x0 = Math.floor(x);
+    const y0 = Math.floor(y);
+    const tx = x - x0;
+    const ty = y - y0;
+    const sx = tx * tx * (3 - 2 * tx);
+    const sy = ty * ty * (3 - 2 * ty);
+    const a = hashNoise(x0, y0, seed);
+    const b = hashNoise(x0 + 1, y0, seed);
+    const c = hashNoise(x0, y0 + 1, seed);
+    const d = hashNoise(x0 + 1, y0 + 1, seed);
+    return lerp(lerp(a, b, sx), lerp(c, d, sx), sy);
+  }
+
+  function hashNoise(x, y, seed) {
+    let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(seed, 1442695041);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function mulberry32(seed) {
+    let t = seed >>> 0;
+    return () => {
+      t += 0x6d2b79f5;
+      let x = t;
+      x = Math.imul(x ^ (x >>> 15), x | 1);
+      x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
   function drawMapGridScreen(ctx) {
     const step = clamp(mapState.settings.gridPx, 16, 512);
     const view = mapState.view;
+    const bounds = mapVisibleDrawBounds();
     ctx.save();
     ctx.strokeStyle = "rgba(30, 24, 16, 0.40)";
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
-    for (let x = 0; x <= mapImage.width; x += step) {
+    const startX = Math.floor(bounds.x / step) * step;
+    const endX = Math.ceil((bounds.x + bounds.w) / step) * step;
+    const startY = Math.floor(bounds.y / step) * step;
+    const endY = Math.ceil((bounds.y + bounds.h) / step) * step;
+    for (let x = startX; x <= endX; x += step) {
       const sx = view.x + x * view.scale;
       ctx.beginPath();
-      ctx.moveTo(sx, view.y);
-      ctx.lineTo(sx, view.y + mapImage.height * view.scale);
+      ctx.moveTo(sx, view.y + bounds.y * view.scale);
+      ctx.lineTo(sx, view.y + (bounds.y + bounds.h) * view.scale);
       ctx.stroke();
     }
-    for (let y = 0; y <= mapImage.height; y += step) {
+    for (let y = startY; y <= endY; y += step) {
       const sy = view.y + y * view.scale;
       ctx.beginPath();
-      ctx.moveTo(view.x, sy);
-      ctx.lineTo(view.x + mapImage.width * view.scale, sy);
+      ctx.moveTo(view.x + bounds.x * view.scale, sy);
+      ctx.lineTo(view.x + (bounds.x + bounds.w) * view.scale, sy);
       ctx.stroke();
     }
     ctx.restore();
+  }
+
+  function mapVisibleDrawBounds() {
+    let x1 = 0;
+    let y1 = 0;
+    let x2 = mapImage.width;
+    let y2 = mapImage.height;
+    if (mapState.fantasyMap?.bounds && mapState.fantasyMap.floor === mapState.floor) {
+      const bounds = mapState.fantasyMap.bounds;
+      x1 = Math.min(x1, bounds.x);
+      y1 = Math.min(y1, bounds.y);
+      x2 = Math.max(x2, bounds.x + bounds.w);
+      y2 = Math.max(y2, bounds.y + bounds.h);
+    }
+    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
   }
 
   function drawMapCropScreen(ctx) {
@@ -1197,9 +1925,10 @@
   }
 
   function clampMapPoint(point) {
+    const bounds = mapVisibleDrawBounds();
     return {
-      x: Math.round(clamp(point.x, 0, mapImage.width)),
-      y: Math.round(clamp(point.y, 0, mapImage.height)),
+      x: Math.round(clamp(point.x, bounds.x, bounds.x + bounds.w)),
+      y: Math.round(clamp(point.y, bounds.y, bounds.y + bounds.h)),
     };
   }
 
@@ -1272,10 +2001,11 @@
   function normalizedMapCrop() {
     const crop = mapState.crop;
     if (!crop || crop.floor !== mapState.floor || !crop.start || !crop.end) return null;
-    const x1 = clamp(Math.min(crop.start.x, crop.end.x), 0, mapImage.width);
-    const y1 = clamp(Math.min(crop.start.y, crop.end.y), 0, mapImage.height);
-    const x2 = clamp(Math.max(crop.start.x, crop.end.x), 0, mapImage.width);
-    const y2 = clamp(Math.max(crop.start.y, crop.end.y), 0, mapImage.height);
+    const bounds = mapVisibleDrawBounds();
+    const x1 = clamp(Math.min(crop.start.x, crop.end.x), bounds.x, bounds.x + bounds.w);
+    const y1 = clamp(Math.min(crop.start.y, crop.end.y), bounds.y, bounds.y + bounds.h);
+    const x2 = clamp(Math.max(crop.start.x, crop.end.x), bounds.x, bounds.x + bounds.w);
+    const y2 = clamp(Math.max(crop.start.y, crop.end.y), bounds.y, bounds.y + bounds.h);
     const w = Math.round(x2 - x1);
     const h = Math.round(y2 - y1);
     if (w < 2 || h < 2) return null;
@@ -1421,12 +2151,29 @@
     canvas.height = size.height;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(mapImage, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
+    drawImageIntoCrop(ctx, mapImage, crop, size.width, size.height, { x: 0, y: 0, w: mapImage.width, h: mapImage.height });
+    drawFantasyWorldMapNatural(ctx, crop, size.width, size.height);
     if (mapState.settings.importUseMapPaint) {
       rebuildMapEditCacheIfNeeded();
-      ctx.drawImage(mapEditCache, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
+      drawImageIntoCrop(ctx, mapEditCache, crop, size.width, size.height, { x: 0, y: 0, w: mapEditCache.width, h: mapEditCache.height });
     }
     return { canvas, ctx };
+  }
+
+  function drawImageIntoCrop(ctx, image, crop, outputWidth, outputHeight, imageBounds) {
+    if (!image || !imageBounds?.w || !imageBounds?.h) return;
+    const x1 = Math.max(crop.x, imageBounds.x);
+    const y1 = Math.max(crop.y, imageBounds.y);
+    const x2 = Math.min(crop.x + crop.w, imageBounds.x + imageBounds.w);
+    const y2 = Math.min(crop.y + crop.h, imageBounds.y + imageBounds.h);
+    const sw = x2 - x1;
+    const sh = y2 - y1;
+    if (sw <= 0 || sh <= 0) return;
+    const dx = (x1 - crop.x) / crop.w * outputWidth;
+    const dy = (y1 - crop.y) / crop.h * outputHeight;
+    const dw = sw / crop.w * outputWidth;
+    const dh = sh / crop.h * outputHeight;
+    ctx.drawImage(image, x1 - imageBounds.x, y1 - imageBounds.y, sw, sh, dx, dy, dw, dh);
   }
 
   function importPixelToDungeonTile(r, g, b, a) {
@@ -1706,6 +2453,10 @@
 
   function downloadMapPng() {
     if (!mapState.ready) return;
+    if (mapState.fantasyMap && mapState.fantasyMap.floor === mapState.floor) {
+      downloadFantasyWorldMapPng();
+      return;
+    }
     const scale = 2;
     const offscreen = document.createElement("canvas");
     offscreen.width = mapImage.width * scale;
@@ -1714,6 +2465,7 @@
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(mapImage, 0, 0);
+    drawFantasyWorldMapNatural(ctx, { x: 0, y: 0, w: mapImage.width, h: mapImage.height }, mapImage.width, mapImage.height);
     rebuildMapEditCacheIfNeeded();
     ctx.drawImage(mapEditCache, 0, 0);
     if (mapState.settings.showCityFootprint) drawCityFootprintNatural(ctx);
@@ -1722,6 +2474,72 @@
     if (mapState.settings.showMarkers) drawMarkersNatural(ctx);
     drawMapExportScale(ctx);
     downloadCanvas(offscreen, "danubia-mapa-campanha.png");
+  }
+
+  function downloadFantasyWorldMapPng() {
+    const bounds = mapState.fantasyMap?.bounds;
+    if (!bounds) return;
+    const scale = Math.min(2, DUNGEON_EXPORT_MAX_SIDE / Math.max(bounds.w, bounds.h));
+    const offscreen = document.createElement("canvas");
+    offscreen.width = Math.max(1, Math.round(bounds.w * scale));
+    offscreen.height = Math.max(1, Math.round(bounds.h * scale));
+    const ctx = offscreen.getContext("2d");
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#171513";
+    ctx.fillRect(0, 0, bounds.w, bounds.h);
+    drawFantasyWorldMapNatural(ctx, bounds, bounds.w, bounds.h);
+    drawMapGridForBoundsNatural(ctx, bounds);
+    drawFantasyExportScale(ctx, bounds);
+    downloadCanvas(offscreen, "danubia-mapa-gerado-35km2.png");
+  }
+
+  function drawMapGridForBoundsNatural(ctx, bounds) {
+    const step = clamp(mapState.settings.gridPx, 16, 512);
+    ctx.save();
+    ctx.translate(-bounds.x, -bounds.y);
+    ctx.strokeStyle = "rgba(30, 24, 16, 0.34)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    const startX = Math.floor(bounds.x / step) * step;
+    const endX = Math.ceil((bounds.x + bounds.w) / step) * step;
+    const startY = Math.floor(bounds.y / step) * step;
+    const endY = Math.ceil((bounds.y + bounds.h) / step) * step;
+    for (let x = startX; x <= endX; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x, bounds.y);
+      ctx.lineTo(x, bounds.y + bounds.h);
+      ctx.stroke();
+    }
+    for (let y = startY; y <= endY; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(bounds.x, y);
+      ctx.lineTo(bounds.x + bounds.w, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawFantasyExportScale(ctx, bounds) {
+    const metersPerTile = Math.max(0.1, Number(mapState.settings.metersPerTile) || 1.5);
+    const km = bounds.w * metersPerTile / 1000;
+    const scaleKm = km >= 10 ? 5 : 1;
+    const width = scaleKm * 1000 / metersPerTile;
+    const x = 34;
+    const y = bounds.h - 38;
+    ctx.save();
+    ctx.fillStyle = "rgba(17, 14, 10, 0.78)";
+    ctx.fillRect(x - 10, y - 26, width + 20, 42);
+    ctx.strokeStyle = "#ffe0a1";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + width, y);
+    ctx.stroke();
+    ctx.fillStyle = "#ffe0a1";
+    ctx.font = "700 18px Georgia";
+    ctx.fillText(`${scaleKm} km`, x, y - 9);
+    ctx.restore();
   }
 
   function drawMapGridNatural(ctx) {
@@ -2413,6 +3231,50 @@
     }
   }
 
+  function sendDungeonToMesa() {
+    if (!window.MesaCombate?.importDungeonMap) {
+      alert("A Mesa ainda nao carregou. Recarregue a pagina e tente novamente.");
+      return;
+    }
+    const { width, height } = dungeonState.data;
+    const maxDim = Math.max(width, height, 1);
+    const displayCell = clamp(parseInt(dungeonState.exportCellSize, 10) || 64, 32, 96);
+    let sourceCell = clamp(Math.floor(8192 / maxDim), 2, 48);
+    let imageDataUrl = "";
+    while (sourceCell >= 2) {
+      const offscreen = document.createElement("canvas");
+      offscreen.width = width * sourceCell;
+      offscreen.height = height * sourceCell;
+      const ctx = offscreen.getContext("2d");
+      ctx.fillStyle = "#121110";
+      ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+      drawDungeonToContext(ctx, {
+        x: 0,
+        y: 0,
+        cell: sourceCell,
+        grid: false,
+        labels: dungeonState.showLabels,
+        gm: dungeonState.showSecrets,
+        screen: false,
+      });
+      imageDataUrl = offscreen.toDataURL("image/png");
+      if (imageDataUrl.length < 2600000 || sourceCell <= 2) break;
+      sourceCell = Math.max(2, Math.floor(sourceCell * 0.72));
+    }
+    const ok = window.MesaCombate.importDungeonMap({
+      name: `Masmorra ${width} x ${height}`,
+      imageDataUrl,
+      cols: width,
+      rows: height,
+      cellPx: displayCell,
+    });
+    if (!ok) {
+      alert("Nao foi possivel enviar esta masmorra para a Mesa.");
+      return;
+    }
+    setActiveMode("mesa", true);
+  }
+
   function renderLabelList() {
     const labels = dungeonState.data.labels;
     $("#labelList").innerHTML = labels.map((label) => `
@@ -2433,6 +3295,33 @@
     const exportCell = effectiveDungeonExportCell();
     const suffix = exportCell < dungeonState.exportCellSize ? ` (${exportCell}px/quad.)` : "";
     $("#dungeonExportReadout").textContent = `${dungeonState.data.width * exportCell} x ${dungeonState.data.height * exportCell}${suffix}`;
+  }
+
+  function loadThaisIllustratedCity() {
+    cityState.settings.name = "Thais";
+    cityState.settings.population = 273110;
+    cityState.settings.areaKm2 = 35;
+    cityState.settings.seed = cityState.settings.seed || "thais-273110";
+    cityState.settings.referenceMode = "thais";
+    if (!cityState.data || cityState.data.name !== "Thais") generateIllustratedCity();
+    applyThaisIllustratedDimensions();
+    getThaisIllustratedImage();
+    syncCityInputs();
+    renderCityLists();
+    fitCity();
+    persistSoon();
+  }
+
+  function applyThaisIllustratedDimensions() {
+    if (!cityState.data) return;
+    const areaM2 = cityState.settings.areaKm2 * 1000000;
+    const widthM = Math.sqrt(areaM2 * THAIS_ILLUSTRATED_ASPECT);
+    const heightM = areaM2 / widthM;
+    cityState.data.name = "Thais";
+    cityState.data.population = cityState.settings.population;
+    cityState.data.areaKm2 = cityState.settings.areaKm2;
+    cityState.data.widthM = widthM;
+    cityState.data.heightM = heightM;
   }
 
   function generateCity() {
@@ -2808,6 +3697,13 @@
     ctx.save();
     ctx.translate(building.x, building.y);
     ctx.rotate(building.rotation || 0);
+    if (manual && building.spriteId && window.CitySprites?.paintSprite) {
+      const size = citySpriteStampSize(building);
+      const footprint = window.CitySprites.getSpriteFootprint?.(building.spriteId) || { w: 1, h: 1 };
+      window.CitySprites.paintSprite(ctx, building.spriteId, -size * footprint.w / 2, -size * footprint.h / 2, size);
+      ctx.restore();
+      return;
+    }
     ctx.fillStyle = building.color || buildingColor({ id: "default" }, () => 0.5);
     ctx.fillRect(-building.w / 2, -building.h / 2, building.w, building.h);
     ctx.strokeStyle = manual ? theme.markerStroke : "rgba(37, 32, 25, 0.72)";
@@ -2840,6 +3736,13 @@
       ctx.stroke();
     }
     ctx.restore();
+  }
+
+  function citySpriteStampSize(building) {
+    const footprint = window.CitySprites?.getSpriteFootprint?.(building.spriteId) || { w: 1, h: 1 };
+    const cellFromWidth = building.w / Math.max(1, footprint.w);
+    const cellFromHeight = building.h / Math.max(1, footprint.h);
+    return clamp(Math.max(18, Math.min(cellFromWidth, cellFromHeight) * 1.35), 18, 54);
   }
 
   function drawCityGrid(ctx, data, scale, screen) {
@@ -3209,8 +4112,72 @@
       drawCenteredText(cityCtx, size.width, size.height, "Gere uma cidade.");
       return;
     }
+    if (isThaisIllustratedMode()) {
+      applyThaisIllustratedDimensions();
+      drawThaisIllustratedCityToContext(cityCtx, cityState.view.x, cityState.view.y, cityState.view.scale, true);
+      updateCityReadouts();
+      return;
+    }
     drawIllustratedCityToContext(cityCtx, cityState.view.x, cityState.view.y, cityState.view.scale, true);
     updateCityReadouts();
+  }
+
+  function isThaisIllustratedMode() {
+    return cityState.settings.referenceMode === "thais";
+  }
+
+  function getThaisIllustratedImage() {
+    if (thaisIllustratedImage) return thaisIllustratedImage;
+    thaisIllustratedImage = new Image();
+    thaisIllustratedImage.onload = () => {
+      if (activeMode === "city" && isThaisIllustratedMode()) renderCity();
+    };
+    thaisIllustratedImage.onerror = () => {
+      if (activeMode === "city" && isThaisIllustratedMode()) {
+        drawCenteredText(cityCtx, cityCanvas.width, cityCanvas.height, "Nao encontrei thais.jpg na pasta Danubia.");
+      }
+    };
+    thaisIllustratedImage.src = THAIS_ILLUSTRATED_SRC;
+    return thaisIllustratedImage;
+  }
+
+  function drawThaisIllustratedCityToContext(ctx, offsetX, offsetY, scale, screen) {
+    const data = cityState.data;
+    const theme = cityTheme();
+    const image = getThaisIllustratedImage();
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = theme.land;
+    ctx.fillRect(0, 0, data.widthM, data.heightM);
+    if (image.complete && image.naturalWidth > 0) {
+      const imageAspect = image.naturalWidth / image.naturalHeight;
+      let drawW = data.widthM;
+      let drawH = drawW / imageAspect;
+      if (drawH > data.heightM) {
+        drawH = data.heightM;
+        drawW = drawH * imageAspect;
+      }
+      const drawX = (data.widthM - drawW) / 2;
+      const drawY = (data.heightM - drawH) / 2;
+      ctx.drawImage(image, drawX, drawY, drawW, drawH);
+      ctx.strokeStyle = "rgba(34, 30, 24, 0.72)";
+      ctx.lineWidth = 12 / Math.max(scale, 0.1);
+      ctx.strokeRect(drawX, drawY, drawW, drawH);
+    } else {
+      ctx.fillStyle = "rgba(38, 34, 28, 0.16)";
+      ctx.fillRect(0, 0, data.widthM, data.heightM);
+    }
+    drawCityManualTerrain(ctx, data);
+    drawCityManualRoads(ctx, data);
+    if (cityState.settings.showBuildings) drawCityManualBuildings(ctx, data);
+    if (cityState.settings.showMarkers) drawIllustratedMarkers(ctx, { ...data, markers: [] }, scale, screen, theme);
+    if (cityState.settings.showGrid) drawCityGrid(ctx, data, scale, screen);
+    ctx.restore();
+    if (screen) {
+      if (!(image.complete && image.naturalWidth > 0)) drawCenteredText(ctx, cityCanvas.width, cityCanvas.height, "Carregando Thais ilustrada...");
+      drawIllustratedCityScaleBar(ctx, theme);
+    }
   }
 
   function drawIllustratedCityToContext(ctx, offsetX, offsetY, scale, screen) {
@@ -3230,6 +4197,9 @@
     drawCityManualRoads(ctx, data);
     if (cityState.settings.showWalls) drawIllustratedWalls(ctx, data, theme);
     if (cityState.settings.showBuildings && cityState.settings.buildingMode !== "hidden") drawIllustratedBuildings(ctx, data, theme);
+    if (cityState.settings.showBuildings && cityState.settings.buildingMode === "symbols" && window.CitySprites?.paintCitySprites) {
+      window.CitySprites.paintCitySprites(ctx, data, { screen, scale, seed: cityState.settings.seed });
+    }
     if (cityState.settings.showBuildings) drawCityManualBuildings(ctx, data);
     drawIllustratedTrees(ctx, data, theme, true);
     if (cityState.settings.showGrid) drawCityGrid(ctx, data, scale, screen);
@@ -3677,6 +4647,10 @@
     cityCanvas.setPointerCapture(event.pointerId);
     const world = screenToCity(getCanvasPoint(cityCanvas, event));
     if (!cityState.data) return;
+    if (event.button !== 0 || event.shiftKey || cityState.settings.tool === "pan") {
+      startCityPan(event);
+      return;
+    }
     if (cityState.settings.tool === "terrain") {
       startCityStroke("terrain", world);
       return;
@@ -3701,6 +4675,10 @@
       cityState.lastStamp = world;
       return;
     }
+    startCityPan(event);
+  }
+
+  function startCityPan(event) {
     cityState.dragging = true;
     cityState.dragStart = { point: getCanvasPoint(cityCanvas, event), view: { ...cityState.view } };
   }
@@ -3790,6 +4768,8 @@
     if (!cityState.data) return;
     ensureCityManual(cityState.data);
     const spec = cityBuildingSpec(cityState.settings.buildingKind);
+    const selectedSpriteId = window.CitySprites?.getSelectedSprite?.();
+    const selectedSprite = window.CitySprites?.getSpriteMeta?.(selectedSpriteId);
     const building = {
       id: `city-building-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       kind: cityState.settings.buildingKind,
@@ -3799,6 +4779,7 @@
       h: spec.h,
       color: spec.color,
       rotation: spec.rotation,
+      spriteId: selectedSprite && selectedSprite.group !== "terrain" ? selectedSpriteId : null,
     };
     cityState.data.manual.buildings.push(building);
     pushCityAction({ action: "add", type: "buildings", item: building });
@@ -3917,7 +4898,16 @@
     offscreen.width = width;
     offscreen.height = height;
     const ctx = offscreen.getContext("2d");
-    drawCityToContext(ctx, 0, 0, width / cityState.data.widthM, false);
+    if (isThaisIllustratedMode()) {
+      const image = getThaisIllustratedImage();
+      if (!(image.complete && image.naturalWidth > 0)) {
+        alert("A imagem thais.jpg ainda esta carregando. Tente baixar de novo em alguns segundos.");
+        return;
+      }
+      drawThaisIllustratedCityToContext(ctx, 0, 0, width / cityState.data.widthM, false);
+    } else {
+      drawIllustratedCityToContext(ctx, 0, 0, width / cityState.data.widthM, false);
+    }
     downloadCanvas(offscreen, `${slugify(cityState.settings.name)}-mapa-urbano.png`);
   }
 
@@ -3929,7 +4919,7 @@
       <div class="label-item">
         <div>
           <div class="label-name">${escapeHtml(district.name)}</div>
-          <div class="label-position">${Math.round(district.w)} x ${Math.round(district.h)} m</div>
+          <div class="label-position">${formatDistrictSize(district)}</div>
         </div>
       </div>
     `).join("");
@@ -3942,6 +4932,12 @@
         </div>
       </div>
     `).join("");
+  }
+
+  function formatDistrictSize(district) {
+    const width = Number.isFinite(district.w) ? district.w : Number.isFinite(district.rx) ? district.rx * 2 : 0;
+    const height = Number.isFinite(district.h) ? district.h : Number.isFinite(district.ry) ? district.ry * 2 : 0;
+    return `${Math.round(width)} x ${Math.round(height)} m`;
   }
 
   function updateCityReadouts() {
@@ -3987,6 +4983,11 @@
       water: { color: "#416d8b", alpha: 0.88 },
       sand: { color: "#c9b071", alpha: 0.82 },
       stone: { color: "#77766c", alpha: 0.84 },
+      dirt: { color: "#8d6842", alpha: 0.86 },
+      swamp: { color: "#54683f", alpha: 0.88 },
+      snow: { color: "#dfe5e8", alpha: 0.86 },
+      lava: { color: "#bb3d1f", alpha: 0.9 },
+      acid: { color: "#83bd48", alpha: 0.88 },
       plaza: { color: "#c3b08d", alpha: 0.82 },
     }[kind] || { color: "#4f7d42", alpha: 0.86 };
   }
@@ -4249,7 +5250,8 @@
   }
 
   function isInsideMap(point) {
-    return point.x >= 0 && point.y >= 0 && point.x <= mapImage.width && point.y <= mapImage.height;
+    const bounds = mapVisibleDrawBounds();
+    return point.x >= bounds.x && point.y >= bounds.y && point.x <= bounds.x + bounds.w && point.y <= bounds.y + bounds.h;
   }
 
   function distanceKm(a, b) {
@@ -4335,6 +5337,29 @@
       }))
       .filter((stroke) => stroke.points.length > 0)
       .slice(-800);
+  }
+
+  function normalizeFantasyMap(map) {
+    if (!map || typeof map !== "object" || !map.bounds) return null;
+    const bounds = map.bounds;
+    const w = Number(bounds.w);
+    const h = Number(bounds.h);
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 10 || h <= 10) return null;
+    return {
+      version: 1,
+      floor: clamp(Math.floor(map.floor ?? 7), 0, 15),
+      seed: Math.abs(Math.floor(Number(map.seed) || 1)),
+      resolution: clamp(Math.round(Number(map.resolution) || 1200), 512, 1600),
+      areaKm2: Number.isFinite(Number(map.areaKm2)) ? Number(map.areaKm2) : 0,
+      urbanKm2: Number.isFinite(Number(map.urbanKm2)) ? Number(map.urbanKm2) : FANTASY_CITY_MIN_KM2,
+      population: Math.max(1, Math.round(Number(map.population) || 200000)),
+      bounds: {
+        x: Math.round(Number(bounds.x || 0) * 10) / 10,
+        y: Math.round(Number(bounds.y || 0) * 10) / 10,
+        w: Math.round(w * 10) / 10,
+        h: Math.round(h * 10) / 10,
+      },
+    };
   }
 
   function visibleImageRect() {
@@ -4428,12 +5453,15 @@
   }
 
   function persistNow() {
+    const previousPayload = loadPersistedState();
+    const mesaPayload = window.MesaCombate?.getPersistPayload?.();
     const payload = {
       map: {
         floor: mapState.floor,
         crop: mapState.crop,
         customMarkers: mapState.customMarkers,
         editStrokes: mapState.editStrokes.slice(-800),
+        fantasyMap: mapState.fantasyMap,
         settings: mapState.settings,
       },
       dungeon: {
@@ -4447,8 +5475,19 @@
         settings: cityState.settings,
         data: cityState.data,
       },
+      mesa: mesaPayload?.mesa ?? previousPayload.mesa,
+      sheets: mesaPayload?.sheets ?? previousPayload.sheets,
+      monsters_cache: mesaPayload?.monsters_cache ?? previousPayload.monsters_cache,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      if (!payload.mesa?.scene) throw error;
+      payload.mesa = { ...payload.mesa, scene: null };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      alert("A cena da Mesa ficou grande demais para salvar no navegador. Ela esta visivel agora, mas pode sumir ao recarregar.");
+    }
+    window.dispatchEvent(new CustomEvent("danubia:state-saved", { detail: payload }));
     const now = new Date();
     $("#saveStatus").textContent = `Salvo ${now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
   }

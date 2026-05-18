@@ -21,6 +21,7 @@
         <button class="mode-tab active" type="button" data-mode="map">Mapa</button>
         <button class="mode-tab" type="button" data-mode="city">Cidade</button>
         <button class="mode-tab" type="button" data-mode="dungeon">Masmorras</button>
+        <button class="mode-tab" type="button" data-mode="mesa">Mesa</button>
         <a class="mode-link" href="index.html">Compendio</a>
       </nav>
 
@@ -39,6 +40,10 @@
           <div class="button-row">
             <button type="button" id="mapDownloadBtn">Baixar PNG</button>
             <button type="button" id="mapResetBtn">Resetar</button>
+          </div>
+          <div class="button-row">
+            <button type="button" id="generateFantasyMapBtn">Gerar cidade estilo Tibia</button>
+            <button type="button" id="clearFantasyMapBtn">Limpar gerado</button>
           </div>
         </section>
 
@@ -254,6 +259,9 @@
             <button type="button" id="downloadDungeonBtn">PNG Mestre</button>
             <button type="button" id="downloadPlayerDungeonBtn">PNG Jogadores</button>
           </div>
+          <div class="button-row">
+            <button type="button" id="sendDungeonMesaBtn">Enviar para Mesa</button>
+          </div>
         </section>
       </aside>
 
@@ -316,6 +324,10 @@
             <button type="button" id="fitCityBtn">Ajustar</button>
           </div>
           <div class="button-row">
+            <button type="button" id="loadThaisIllustratedBtn">Thais ilustrada</button>
+            <button type="button" id="useGeneratedCityBtn">Mapa gerado</button>
+          </div>
+          <div class="button-row">
             <button type="button" id="downloadCityBtn">Baixar PNG</button>
             <button type="button" id="randomCitySeedBtn">Nova semente</button>
           </div>
@@ -361,6 +373,11 @@
             <option value="water">Agua</option>
             <option value="sand">Areia</option>
             <option value="stone">Pedra</option>
+            <option value="dirt">Terra</option>
+            <option value="swamp">Lama</option>
+            <option value="snow">Neve</option>
+            <option value="lava">Lava</option>
+            <option value="acid">Acido</option>
             <option value="plaza">Praca</option>
           </select>
 
@@ -373,6 +390,9 @@
             <option value="tower">Torre</option>
             <option value="ruin">Ruina</option>
           </select>
+
+          <div class="section-title">Sprites Pixel Art</div>
+          <div id="spritePalette" class="sprite-palette" aria-label="Paleta de sprites de cidade"></div>
 
           <div class="grid-two">
             <label>
@@ -407,6 +427,103 @@
         </section>
       </aside>
 
+      <aside class="side-panel left-panel is-hidden" data-panel="mesa">
+        <section class="control-section">
+          <div class="section-title">Visao</div>
+          <label class="field-label" for="mesaPlayerSlot">Slot do jogador</label>
+          <select id="mesaPlayerSlot">
+            <option value="1">Jogador 1</option>
+            <option value="2">Jogador 2</option>
+            <option value="3">Jogador 3</option>
+            <option value="4">Jogador 4</option>
+            <option value="5">Jogador 5</option>
+          </select>
+          <button type="button" id="mesaOpenPlayerBtn">Abrir visao do jogador</button>
+          <div class="source-note">A janela do jogador mostra apenas tokens visiveis e a ficha do slot escolhido.</div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Grid Tatico</div>
+          <div class="grid-two">
+            <label>
+              Largura
+              <input id="mesaGridCols" type="number" min="5" max="500" value="20" />
+            </label>
+            <label>
+              Altura
+              <input id="mesaGridRows" type="number" min="5" max="500" value="15" />
+            </label>
+          </div>
+          <label class="field-label" for="mesaCellSize">Tamanho da celula</label>
+          <input id="mesaCellSize" type="range" min="32" max="96" value="64" />
+          <div class="button-row">
+            <button type="button" id="mesaApplyGridBtn">Aplicar</button>
+            <button type="button" id="mesaFitGridBtn">Ajustar</button>
+          </div>
+          <div class="button-row">
+            <button type="button" data-mesa-grid-step="-10">-10</button>
+            <button type="button" data-mesa-grid-step="10">+10</button>
+          </div>
+          <div class="button-row">
+            <button type="button" data-mesa-grid-preset="30x20">30 x 20</button>
+            <button type="button" data-mesa-grid-preset="50x35">50 x 35</button>
+          </div>
+          <div class="button-row">
+            <button type="button" data-mesa-grid-preset="100x70">100 x 70</button>
+            <button type="button" data-mesa-grid-preset="200x140">200 x 140</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Tokens</div>
+          <div class="segmented multi">
+            <button type="button" id="mesaAddPlayerBtn">Jogador</button>
+            <button type="button" id="mesaAddMonsterBtn">Monstro</button>
+            <button type="button" id="mesaAddNpcBtn">NPC</button>
+            <button type="button" id="mesaAddObjectBtn">Objeto</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Fichas</div>
+          <div id="mesaSheetSlots" class="mesa-sheet-slots"></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Iniciativa</div>
+          <div class="button-row">
+            <button type="button" id="mesaRollInitiativeBtn">Rolar todos</button>
+            <button type="button" id="mesaAddSelectedInitiativeBtn">Adicionar selecionado</button>
+          </div>
+          <div class="button-row">
+            <button type="button" id="mesaPrevTurnBtn">Anterior</button>
+            <button type="button" id="mesaNextTurnBtn">Proximo</button>
+          </div>
+          <div class="button-row">
+            <button type="button" id="mesaSortInitiativeBtn">Ordenar</button>
+            <button type="button" id="mesaClearInitiativeBtn">Limpar</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Dados</div>
+          <label class="field-label" for="mesaDiceExpression">Expressao</label>
+          <input id="mesaDiceExpression" type="text" value="1d20" maxlength="32" />
+          <button type="button" id="mesaRollDiceBtn">Rolar</button>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Escudo do Mestre</div>
+          <button type="button" id="mesaShieldToggle">Abrir escudo</button>
+          <div id="mesaShieldBody" class="gm-shield is-collapsed">
+            <div><strong>CD rapida</strong><span>10 facil, 15 media, 20 dificil, 25 muito dificil</span></div>
+            <div><strong>Cobertura</strong><span>Meia +2 CA, tres quartos +5 CA</span></div>
+            <div><strong>Viagem</strong><span>Normal 38 km/dia, rapido 48 km/dia, lento 29 km/dia</span></div>
+            <div><strong>Condicoes</strong><span>Use marcadores no token para lembrar efeitos ativos.</span></div>
+          </div>
+        </section>
+      </aside>
+
       <section class="stage">
         <div class="canvas-frame active" id="mapFrame">
           <canvas id="mapCanvas" role="application" aria-label="Mapa interativo de Danubia" tabindex="0"></canvas>
@@ -416,6 +533,14 @@
         </div>
         <div class="canvas-frame" id="cityFrame">
           <canvas id="cityCanvas" role="application" aria-label="Editor interativo de cidade" tabindex="0"></canvas>
+        </div>
+        <div class="canvas-frame mesa-frame" id="mesaFrame">
+          <div class="mesa-board-shell">
+            <div id="mesaPlayerSlotPicker" class="mesa-player-picker is-hidden"></div>
+            <div id="mesaGridViewport" class="mesa-grid-viewport" role="application" aria-label="Grid tatico da mesa">
+              <div id="mesaGrid" class="mesa-grid"></div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -544,10 +669,121 @@
           <div class="section-title">Pontos</div>
           <div id="cityMarkerList" class="label-list"></div>
         </section>
+
+        <section class="info-section is-hidden" data-info="mesa">
+          <div class="section-title">Mesa</div>
+          <div class="metric-grid">
+            <div>
+              <span>Grid</span>
+              <strong id="mesaGridReadout">20 x 15</strong>
+            </div>
+            <div>
+              <span>Zoom</span>
+              <strong id="mesaZoomReadout">100%</strong>
+            </div>
+            <div>
+              <span>Tokens</span>
+              <strong id="mesaTokenReadout">0</strong>
+            </div>
+            <div>
+              <span>Rodada</span>
+              <strong id="mesaRoundReadout">0</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="mesa">
+          <div class="section-title">Token Selecionado</div>
+          <div id="mesaSelectedToken" class="mesa-token-panel">
+            <div class="empty-state">Clique em um token no grid.</div>
+          </div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="mesa">
+          <div class="section-title">Iniciativa</div>
+          <div id="mesaInitiativeList" class="initiative-list">
+            <div class="empty-state">Nenhuma iniciativa rolada.</div>
+          </div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="mesa">
+          <div class="section-title">Bestiario</div>
+          <input id="mesaMonsterSearch" class="search-input" type="search" placeholder="Buscar monstro" />
+          <div class="grid-two">
+            <label>
+              CR max.
+              <input id="mesaMonsterCr" type="range" min="0" max="30" step="0.25" value="30" />
+            </label>
+            <label>
+              Tamanho
+              <select id="mesaMonsterSize">
+                <option value="">Todos</option>
+                <option value="Tiny">Tiny</option>
+                <option value="Small">Small</option>
+                <option value="Medium">Medium</option>
+                <option value="Large">Large</option>
+                <option value="Huge">Huge</option>
+                <option value="Gargantuan">Gargantuan</option>
+              </select>
+            </label>
+          </div>
+          <label class="field-label" for="mesaMonsterType">Tipo</label>
+          <select id="mesaMonsterType">
+            <option value="">Todos</option>
+          </select>
+          <div class="button-row">
+            <button type="button" id="mesaRefreshMonstersBtn">Atualizar</button>
+            <button type="button" id="mesaClearMonsterFiltersBtn">Limpar filtros</button>
+          </div>
+          <div id="mesaMonsterStatus" class="source-note">Carregando bestiario...</div>
+          <div id="mesaMonsterList" class="monster-list"></div>
+        </section>
+
+        <section class="info-section is-hidden" data-info="mesa">
+          <div class="section-title">Historico de Dados</div>
+          <div id="mesaDiceHistory" class="dice-history">
+            <div class="empty-state">Nenhuma rolagem.</div>
+          </div>
+        </section>
       </aside>
     </main>
   </div>
 
-  <script src="mesa-danubia.js"></script>
+  <div id="mesaSheetModal" class="sheet-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="mesaSheetTitle">
+    <div class="sheet-dialog">
+      <div class="modal-header">
+        <div>
+          <div class="section-title">Ficha de Personagem</div>
+          <h2 id="mesaSheetTitle">Slot</h2>
+        </div>
+        <button type="button" id="mesaSheetCloseBtn" aria-label="Fechar ficha">Fechar</button>
+      </div>
+      <div class="sheet-tabs">
+        <button type="button" class="active" data-sheet-tab="stats">Stats</button>
+        <button type="button" data-sheet-tab="appearance">Aparencia</button>
+        <button type="button" data-sheet-tab="spells">Magias</button>
+      </div>
+      <div id="mesaSheetContent" class="sheet-content"></div>
+    </div>
+  </div>
+
+  <div id="mesaMonsterModal" class="sheet-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="mesaMonsterTitle">
+    <div class="sheet-dialog monster-dialog">
+      <div class="modal-header">
+        <div>
+          <div class="section-title">Ficha de Monstro</div>
+          <h2 id="mesaMonsterTitle">Monstro</h2>
+        </div>
+        <button type="button" id="mesaMonsterCloseBtn" aria-label="Fechar monstro">Fechar</button>
+      </div>
+      <div id="mesaMonsterContent" class="monster-content"></div>
+    </div>
+  </div>
+
+  <input id="mesaSpriteUpload" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+
+  <script src="mesa-danubia.js?v=mesa-7"></script>
+  <script src="city-sprites.js?v=mesa-7"></script>
+  <script src="mesa-combate.js?v=mesa-7"></script>
 </body>
 </html>
