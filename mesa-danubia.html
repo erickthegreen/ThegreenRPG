@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="mesa-danubia.css" />
+  <link rel="stylesheet" href="mesa-danubia.css?v=atlas-16" />
 </head>
 <body>
   <div class="app-shell">
@@ -31,8 +31,9 @@
 
     <main class="workspace">
       <aside class="side-panel left-panel" data-panel="map">
-        <section class="control-section">
-          <div class="section-title">Mapa Mundi de Danubia</div>
+        <section class="control-section atlas-section">
+          <div class="section-title">Atlas de Danubia</div>
+          <div class="panel-note">Mapa mundi original com continentes, arquipelagos, cidades do compendio, rotas, escala global e camadas de leitura para campanha.</div>
           <div class="button-row">
             <button type="button" id="mapFitBtn">Ajustar</button>
             <button type="button" id="mapZoomInBtn">+</button>
@@ -43,13 +44,13 @@
             <button type="button" id="mapResetBtn">Resetar</button>
           </div>
           <div class="button-row">
-            <button type="button" id="generateFantasyMapBtn">Gerar mapa mundi original</button>
+            <button type="button" id="generateFantasyMapBtn">Regenerar atlas</button>
             <button type="button" id="clearFantasyMapBtn">Limpar gerado</button>
           </div>
         </section>
 
         <section class="control-section">
-          <div class="section-title">Ferramenta</div>
+          <div class="section-title">Ferramentas do Atlas</div>
           <div class="segmented" role="group" aria-label="Ferramenta do mapa">
             <button type="button" class="active" data-map-tool="pan">Mover</button>
             <button type="button" data-map-tool="ruler">Regua</button>
@@ -60,7 +61,7 @@
         </section>
 
         <section class="control-section">
-          <div class="section-title">Escala Global</div>
+          <div class="section-title">Escala e Viagem</div>
           <label class="field-label" for="mapPlane">Plano</label>
           <select id="mapPlane">
             <option value="world" selected>Mapa mundi original</option>
@@ -95,7 +96,7 @@
         </section>
 
         <section class="control-section">
-          <div class="section-title">Pintura do Mapa</div>
+          <div class="section-title">Pintura Cartografica</div>
           <label class="field-label" for="mapPaintMode">Acao</label>
           <select id="mapPaintMode">
             <option value="paint">Pintar</option>
@@ -149,7 +150,7 @@
         </section>
 
         <section class="control-section">
-          <div class="section-title">Camadas</div>
+          <div class="section-title">Camadas do Atlas</div>
           <label class="check-row"><input id="showMapGrid" type="checkbox" checked /> Grid</label>
           <label class="check-row"><input id="showMapRoutes" type="checkbox" checked /> Rotas</label>
           <label class="check-row"><input id="showMapMarkers" type="checkbox" checked /> Marcadores</label>
@@ -288,8 +289,12 @@
       </aside>
 
       <aside class="side-panel left-panel is-hidden" data-panel="city">
-        <section class="control-section">
-          <div class="section-title">Mapa Urbano</div>
+        <section class="control-section atlas-section">
+          <div class="section-title">Thais Urbana</div>
+          <div class="panel-note">Gerador cartografico para uma cidade grande: muralha, bairros, avenidas, quarteiroes, casas, campos, porto e marcadores.</div>
+          <label class="field-label" for="cityTemplateSelect">Cidade principal</label>
+          <select id="cityTemplateSelect"></select>
+
           <label class="field-label" for="cityMapName">Nome</label>
           <input id="cityMapName" type="text" value="Thais" maxlength="40" />
 
@@ -309,8 +314,8 @@
 
           <label class="field-label" for="cityVisualStyle">Estilo</label>
           <select id="cityVisualStyle">
-            <option value="green">Verde Watabou</option>
             <option value="parchment">Pergaminho</option>
+            <option value="green">Verde cartografico</option>
             <option value="gray">Urbano cinza</option>
             <option value="satellite">Satelite fantasia</option>
           </select>
@@ -356,7 +361,7 @@
         </section>
 
         <section class="control-section">
-          <div class="section-title">Conteudo</div>
+          <div class="section-title">Camadas Urbanas</div>
           <label class="check-row"><input id="showCityGrid" type="checkbox" /> Grid de escala</label>
           <label class="check-row"><input id="showCityWalls" type="checkbox" checked /> Muralhas e portoes</label>
           <label class="check-row"><input id="showCityWater" type="checkbox" checked /> Rio, lago e porto</label>
@@ -921,7 +926,7 @@
 
   <input id="mesaSpriteUpload" type="file" accept="image/png,image/jpeg,image/webp" hidden />
 
-  <script src="mesa-danubia.js?v=mesa-11"></script>
+  <script src="mesa-danubia.js?v=atlas-16"></script>
   <script src="city-sprites.js?v=mesa-11"></script>
   <script src="mesa-combate.js?v=mesa-11"></script>
   <script src="danubia-online.js?v=mesa-11"></script>

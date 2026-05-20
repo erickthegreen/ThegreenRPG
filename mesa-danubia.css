@@ -217,6 +217,25 @@ input[type="range"] {
   box-shadow: 0 16px 40px var(--shadow);
 }
 
+body[data-active-mode="map"] .stage,
+body[data-active-mode="city"] .stage {
+  background:
+    radial-gradient(circle at 50% 46%, rgba(236, 224, 184, 0.10), transparent 42%),
+    linear-gradient(180deg, #3b3528, #181510);
+}
+
+body[data-active-mode="map"] .canvas-frame.active,
+body[data-active-mode="city"] .canvas-frame.active {
+  inset: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(236, 215, 158, 0.28);
+  border-radius: 7px;
+  background: #cab993;
+  box-shadow:
+    inset 0 0 0 1px rgba(48, 38, 25, 0.24),
+    inset 0 0 90px rgba(62, 44, 24, 0.20);
+}
+
 .canvas-frame {
   position: absolute;
   inset: 0;
@@ -233,6 +252,14 @@ canvas {
   display: block;
   touch-action: none;
   cursor: crosshair;
+}
+
+body.space-pan-active canvas {
+  cursor: grab !important;
+}
+
+body.space-pan-active canvas:active {
+  cursor: grabbing !important;
 }
 
 #cityCanvas {
@@ -256,6 +283,22 @@ canvas {
   font-size: 0.82rem;
   font-weight: 700;
   margin-bottom: 10px;
+}
+
+.atlas-section {
+  background:
+    linear-gradient(180deg, rgba(210, 173, 85, 0.10), transparent 72%),
+    rgba(255, 255, 255, 0.018);
+}
+
+.panel-note {
+  margin: -2px 0 12px;
+  padding: 10px;
+  color: var(--muted);
+  border: 1px solid rgba(232, 219, 188, 0.13);
+  border-radius: 7px;
+  background: rgba(8, 7, 6, 0.20);
+  font-size: 0.9rem;
 }
 
 .field-label {

@@ -16,11 +16,13 @@
   const IS_PLAYER_VIEW = APP_PARAMS.get("role") === "player" || APP_PARAMS.get("view") === "player";
 
   const DANUBIA_WORLD_WIDTH = 4096;
-  const DANUBIA_WORLD_HEIGHT = 3072;
+  const DANUBIA_WORLD_HEIGHT = 2560;
   const DANUBIA_WORLD_SEED = 20260518;
+  const DANUBIA_WORLD_MAP_VERSION = 10;
+  const DANUBIA_CITY_MAP_VERSION = 9;
 
   const builtInPlaces = [
-    { id: "thais", name: "Thais", type: "Capital portuaria", rx: 0.455, ry: 0.545, rank: 1, population: 110000, areaKm2: 420, note: "Capital humana e porto real; muralha dupla, guildas, catacumbas e controle de artefatos." },
+    { id: "thais", name: "Thais", type: "Capital portuaria", rx: 0.492, ry: 0.705, rank: 1, population: 273110, areaKm2: 420, note: "Capital humana e porto real; muralha dupla, guildas, catacumbas, baia protegida e controle de artefatos." },
     { id: "drakenthal", name: "Drakenthal", type: "Cidade fortaleza", rx: 0.600, ry: 0.340, rank: 2, population: 90000, areaKm2: 380, note: "Anfiteatro vulcanico, basalto negro, tuneis, forjas e fumaca permanente no horizonte." },
     { id: "ossebra", name: "Ossebra", type: "Cidade elfica fluvial", rx: 0.485, ry: 0.405, rank: 3, population: 80000, areaKm2: 510, note: "Plataformas em arvores milenares; Rio Ebra corta a cidade e os arquivos guardam mapas antigos." },
     { id: "velmoor", name: "Velmoor", type: "Mercado de estepe", rx: 0.540, ry: 0.565, rank: 4, population: 75000, areaKm2: 350, note: "Cidade horizontal, ruas largas para caravanas e maior mercado aberto de Danubia." },
@@ -107,8 +109,8 @@
     { id: "danubia-city", label: "Cidade por cores" },
     { id: "generic", label: "Imagem generica" },
   ];
-  const THAIS_ILLUSTRATED_SRC = "thais.jpg";
-  const THAIS_ILLUSTRATED_ASPECT = 1536 / 2048;
+  const THAIS_ILLUSTRATED_SRC = "thais.png";
+  const THAIS_ILLUSTRATED_ASPECT = 1536 / 1024;
   const TERRAIN_SPRITE_KIND = {
     grass: "grass",
     cobble: "stone",
@@ -226,6 +228,7 @@
 
   let activeMode = "map";
   let persisted = loadPersistedState();
+  let spacePanActive = false;
 
   const mapState = {
     ready: false,
@@ -298,12 +301,13 @@
     undo: [],
     redo: [],
     settings: {
-      styleVersion: 3,
+      styleVersion: DANUBIA_CITY_MAP_VERSION,
+      cityId: persisted.city?.settings?.cityId || "thais",
       name: persisted.city?.settings?.name || "Thais",
       population: persisted.city?.settings?.population || 273110,
       areaKm2: persisted.city?.settings?.areaKm2 || 35,
       seed: persisted.city?.settings?.seed || "thais-273110",
-      visualStyle: persisted.city?.settings?.visualStyle || "green",
+      visualStyle: (persisted.city?.settings?.styleVersion || 0) >= DANUBIA_CITY_MAP_VERSION ? persisted.city?.settings?.visualStyle || "parchment" : "parchment",
       densityMode: persisted.city?.settings?.densityMode || "high",
       labelMode: persisted.city?.settings?.labelMode || "clean",
       buildingMode: persisted.city?.settings?.buildingMode || "symbols",
@@ -336,6 +340,7 @@
     bindMapControls();
     bindDungeonControls();
     bindCityControls();
+    populateCityTemplateSelect();
     renderTilePalette();
     renderTileLegend();
     syncMapInputs();
@@ -343,7 +348,7 @@
     syncCityInputs();
     renderMarkerList();
     renderLabelList();
-    if (!cityState.data || cityState.data.mapVersion !== 4) generateCity();
+    if (!cityState.data || cityState.data.mapVersion !== DANUBIA_CITY_MAP_VERSION) generateCity();
     else {
       ensureCityManual(cityState.data);
       if (cityState.settings.referenceMode === "thais") applyThaisIllustratedDimensions();
@@ -368,6 +373,7 @@
     resizeAll();
     window.addEventListener("resize", resizeAll);
     window.addEventListener("keydown", handleKeyboard);
+    window.addEventListener("keyup", handleKeyboardUp);
   }
 
   function bindTopbar() {
@@ -387,6 +393,7 @@
 
   function setActiveMode(mode, updateHash) {
     activeMode = APP_MODES.includes(mode) ? mode : "map";
+    document.body.dataset.activeMode = activeMode;
     $$(".mode-tab").forEach((item) => item.classList.toggle("active", item.dataset.mode === activeMode));
     APP_MODES.forEach((panel) => {
       $(`[data-panel='${panel}']`)?.classList.toggle("is-hidden", activeMode !== panel);
@@ -623,6 +630,14 @@
   }
 
   function bindCityControls() {
+    $("#cityTemplateSelect").addEventListener("change", (event) => {
+      applyCityTemplate(event.target.value);
+      cityState.settings.referenceMode = "generated";
+      generateCity();
+      syncCityInputs();
+      persistSoon();
+    });
+
     $("#generateCityBtn").addEventListener("click", () => {
       readCitySettings();
       cityState.settings.referenceMode = "generated";
@@ -682,6 +697,9 @@
     ["#cityTerrainKind", "#cityBuildingKind", "#cityMarkerType", "#cityVisualStyle", "#cityDensityMode", "#cityLabelMode", "#cityBuildingMode"].forEach((selector) => {
       $(selector).addEventListener("change", () => {
         readCitySettings();
+        if (selector === "#cityTerrainKind") setCityTool("terrain", { render: false, persist: false });
+        if (selector === "#cityBuildingKind") setCityTool("building", { render: false, persist: false });
+        if (selector === "#cityMarkerType") setCityTool("marker", { render: false, persist: false });
         persistSoon();
         renderCity();
       });
@@ -712,6 +730,72 @@
     cityCanvas.addEventListener("contextmenu", (event) => event.preventDefault());
   }
 
+  function populateCityTemplateSelect() {
+    const select = $("#cityTemplateSelect");
+    if (!select) return;
+    const current = cityState.settings.cityId || "thais";
+    select.innerHTML = mainCityPlaces().map((place) => `<option value="${escapeHtml(place.id)}">${escapeHtml(place.name)} - ${escapeHtml(place.type)}</option>`).join("");
+    select.value = current;
+  }
+
+  function mainCityPlaces() {
+    return builtInPlaces.filter((place) => !place.village).sort((a, b) => (a.rank || 99) - (b.rank || 99));
+  }
+
+  function applyCityTemplate(cityId) {
+    const profile = cityProfile(cityId);
+    cityState.settings.cityId = profile.id;
+    cityState.settings.name = profile.name;
+    cityState.settings.population = profile.population;
+    cityState.settings.areaKm2 = profile.areaKm2;
+    cityState.settings.seed = `${slugify(profile.name)}-${profile.population}`;
+    cityState.settings.visualStyle = profile.style || cityState.settings.visualStyle || "parchment";
+    cityState.settings.densityMode = profile.density || cityState.settings.densityMode || "high";
+    cityState.settings.labelMode = "clean";
+  }
+
+  function cityProfile(cityIdOrName) {
+    const key = slugify(cityIdOrName || cityState.settings.cityId || cityState.settings.name || "thais");
+    const place = mainCityPlaces().find((item) => item.id === key || slugify(item.name) === key) || findPlace(key) || findPlace("thais");
+    const overrides = {
+      thais: { population: 273110, areaKm2: 35, water: "sea-port", style: "parchment", density: "high", wall: "royal", portSide: "south" },
+      "porto-cinzento": { areaKm2: 18, water: "sea-port", style: "gray", density: "high", wall: "harbor", portSide: "west" },
+      "caern-do-sul": { areaKm2: 16, water: "sea-port", style: "green", density: "medium", wall: "white", portSide: "south" },
+      narath: { areaKm2: 14, water: "cliff-port", style: "gray", density: "medium", wall: "cliff", portSide: "east" },
+      serathis: { areaKm2: 12, water: "ice-port", style: "gray", density: "medium", wall: "stone", portSide: "north" },
+      ossebra: { areaKm2: 26, water: "river", style: "green", density: "medium", wall: "organic" },
+      mireth: { areaKm2: 20, water: "lake-swamp", style: "green", density: "medium", wall: "timber" },
+      solavar: { areaKm2: 18, water: "oasis", style: "parchment", density: "medium", wall: "sandstone" },
+      drakenthal: { areaKm2: 24, water: "none", style: "gray", density: "high", wall: "basalt" },
+      bhalrock: { areaKm2: 11, water: "none", style: "gray", density: "medium", wall: "basalt" },
+      halveth: { areaKm2: 15, water: "frozen-river", style: "gray", density: "medium", wall: "granite" },
+      tundram: { areaKm2: 13, water: "none", style: "gray", density: "medium", wall: "granite" },
+      velmoor: { areaKm2: 22, water: "canal", style: "green", density: "medium", wall: "market" },
+      faelcross: { areaKm2: 16, water: "stream", style: "green", density: "medium", wall: "light" },
+      selvorn: { areaKm2: 19, water: "river", style: "green", density: "medium", wall: "timber" },
+      variel: { areaKm2: 18, water: "forest-lake", style: "green", density: "low", wall: "organic" },
+      cravenspire: { areaKm2: 12, water: "none", style: "gray", density: "low", wall: "spire" },
+      duskholm: { areaKm2: 16, water: "marsh", style: "gray", density: "medium", wall: "double" },
+      eldenmoor: { areaKm2: 15, water: "lake-swamp", style: "green", density: "medium", wall: "stone" },
+      ironvale: { areaKm2: 17, water: "industrial-river", style: "gray", density: "high", wall: "iron" },
+    };
+    const override = overrides[place?.id] || {};
+    const population = override.population || place?.population || cityState.settings.population || 20000;
+    const suggestedArea = Math.max(10, Math.round((population / 7800) * 10) / 10);
+    return {
+      id: place?.id || key,
+      name: place?.name || cityState.settings.name || "Thais",
+      type: place?.type || "Cidade",
+      population,
+      areaKm2: override.areaKm2 || suggestedArea,
+      water: override.water || "river",
+      style: override.style,
+      density: override.density,
+      wall: override.wall || "stone",
+      portSide: override.portSide || "south",
+    };
+  }
+
   function setCityTool(tool, options = {}) {
     const allowed = ["pan", "terrain", "building", "road", "marker", "erase"];
     finishCityDrawing();
@@ -736,13 +820,17 @@
     const road = $("#cityRoadWidth");
     const markerName = $("#cityMarkerName");
     const markerType = $("#cityMarkerType");
-    if (terrain) terrain.disabled = tool !== "terrain";
-    if (building) building.disabled = tool !== "building";
-    if (brush) brush.disabled = !["terrain", "erase"].includes(tool);
-    if (road) road.disabled = tool !== "road";
-    if (markerName) markerName.disabled = tool !== "marker";
-    if (markerType) markerType.disabled = tool !== "marker";
+    if (terrain) terrain.disabled = false;
+    if (building) building.disabled = false;
+    if (brush) brush.disabled = false;
+    if (road) road.disabled = false;
+    if (markerName) markerName.disabled = false;
+    if (markerType) markerType.disabled = false;
     if (cityCanvas) {
+      if (spacePanActive) {
+        cityCanvas.style.cursor = "grab";
+        return;
+      }
       cityCanvas.style.cursor = {
         pan: "grab",
         terrain: "crosshair",
@@ -800,6 +888,8 @@
   }
 
   function syncCityInputs() {
+    populateCityTemplateSelect();
+    $("#cityTemplateSelect").value = cityState.settings.cityId || "thais";
     $("#cityMapName").value = cityState.settings.name;
     $("#cityMapPopulation").value = cityState.settings.population;
     $("#cityMapArea").value = cityState.settings.areaKm2;
@@ -831,6 +921,7 @@
   }
 
   function readCitySettings() {
+    cityState.settings.cityId = $("#cityTemplateSelect")?.value || cityState.settings.cityId || slugify($("#cityMapName").value);
     cityState.settings.name = $("#cityMapName").value.trim() || "Cidade";
     cityState.settings.population = clamp(parseInt($("#cityMapPopulation").value, 10) || 10000, 1000, 1000000);
     cityState.settings.areaKm2 = clamp(Number($("#cityMapArea").value) || 10, 1, 300);
@@ -942,7 +1033,8 @@
   function fitMapToBounds(bounds) {
     if (!bounds || bounds.w <= 0 || bounds.h <= 0) return;
     const size = canvasSize(mapCanvas);
-    const scale = Math.min(size.width / bounds.w, size.height / bounds.h) * 0.90;
+    const coverWorld = mapState.fantasyMap?.fullWorld && bounds === mapState.fantasyMap.bounds;
+    const scale = (coverWorld ? Math.max(size.width / bounds.w, size.height / bounds.h) * 0.98 : Math.min(size.width / bounds.w, size.height / bounds.h) * 0.90);
     mapState.view.scale = clamp(scale, 0.06, 5);
     mapState.view.x = size.width / 2 - (bounds.x + bounds.w / 2) * mapState.view.scale;
     mapState.view.y = size.height / 2 - (bounds.y + bounds.h / 2) * mapState.view.scale;
@@ -970,7 +1062,7 @@
   function renderMap() {
     const size = resizeCanvas(mapCanvas, mapCtx);
     mapCtx.clearRect(0, 0, size.width, size.height);
-    mapCtx.fillStyle = "#171513";
+    mapCtx.fillStyle = mapState.fantasyMap?.fullWorld ? "#c7b58d" : "#171513";
     mapCtx.fillRect(0, 0, size.width, size.height);
 
     if (!mapState.ready) {
@@ -980,7 +1072,9 @@
 
     const view = mapState.view;
     mapCtx.imageSmoothingEnabled = mapState.view.scale < 1;
-    mapCtx.drawImage(mapImage, view.x, view.y, mapImage.width * view.scale, mapImage.height * view.scale);
+    if (!mapState.fantasyMap?.fullWorld) {
+      mapCtx.drawImage(mapImage, view.x, view.y, mapImage.width * view.scale, mapImage.height * view.scale);
+    }
     drawFantasyWorldMapScreen(mapCtx);
     drawMapEditsScreen(mapCtx);
 
@@ -997,14 +1091,16 @@
   function drawMapEditsScreen(ctx) {
     rebuildMapEditCacheIfNeeded();
     if (!mapEditCache.width || !mapEditCache.height) return;
+    const bounds = mapDrawingBounds();
+    const topLeft = mapImageToScreen({ x: bounds.x, y: bounds.y });
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
       mapEditCache,
-      mapState.view.x,
-      mapState.view.y,
-      mapImage.width * mapState.view.scale,
-      mapImage.height * mapState.view.scale
+      topLeft.x,
+      topLeft.y,
+      bounds.w * mapState.view.scale,
+      bounds.h * mapState.view.scale
     );
     ctx.restore();
   }
@@ -1064,7 +1160,7 @@
     const bounds = mapState.fantasyMap.bounds;
     const topLeft = mapImageToScreen({ x: bounds.x, y: bounds.y });
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = Boolean(mapState.fantasyMap.fullWorld);
     ctx.drawImage(fantasyMapCanvas, topLeft.x, topLeft.y, bounds.w * mapState.view.scale, bounds.h * mapState.view.scale);
     ctx.strokeStyle = "rgba(255, 224, 161, 0.48)";
     ctx.lineWidth = 1.5;
@@ -1080,7 +1176,7 @@
     const scaleX = outputWidth / sourceRect.w;
     const scaleY = outputHeight / sourceRect.h;
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = Boolean(mapState.fantasyMap.fullWorld);
     ctx.drawImage(
       fantasyMapCanvas,
       0,
@@ -1097,9 +1193,10 @@
 
   function rebuildMapEditCacheIfNeeded() {
     if (!mapState.ready) return;
-    if (mapEditCache.width !== mapImage.width || mapEditCache.height !== mapImage.height) {
-      mapEditCache.width = mapImage.width;
-      mapEditCache.height = mapImage.height;
+    const bounds = mapDrawingBounds();
+    if (mapEditCache.width !== bounds.w || mapEditCache.height !== bounds.h) {
+      mapEditCache.width = bounds.w;
+      mapEditCache.height = bounds.h;
       mapEditCacheDirty = true;
     }
     if (!mapEditCacheDirty) return;
@@ -1146,7 +1243,7 @@
   }
 
   function ensureDanubiaWorldMap() {
-    if (mapState.fantasyMap?.fullWorld && mapState.fantasyMap.version >= 4 && mapState.fantasyMap.floor === 7) {
+    if (mapState.fantasyMap?.fullWorld && mapState.fantasyMap.version >= DANUBIA_WORLD_MAP_VERSION && mapState.fantasyMap.floor === 7) {
       if (mapState.settings.metersPerTile < 50) {
         mapState.settings.metersPerTile = 250;
         syncMapInputs();
@@ -1162,17 +1259,17 @@
 
   function createDanubiaWorldMap(seed) {
     return {
-      version: 4,
+      version: DANUBIA_WORLD_MAP_VERSION,
       fullWorld: true,
       floor: 7,
       seed: Math.abs(Math.floor(seed || DANUBIA_WORLD_SEED)),
-      resolution: 1536,
-      resolutionW: 1536,
-      resolutionH: 1152,
-      bounds: { x: 0, y: 0, w: mapImage.width || DANUBIA_WORLD_WIDTH, h: mapImage.height || DANUBIA_WORLD_HEIGHT },
-      areaKm2: Math.round(((mapImage.width || DANUBIA_WORLD_WIDTH) * mapState.settings.metersPerTile / 1000) * ((mapImage.height || DANUBIA_WORLD_HEIGHT) * mapState.settings.metersPerTile / 1000)),
+      resolution: 1920,
+      resolutionW: 1920,
+      resolutionH: 1200,
+      bounds: { x: 0, y: 0, w: DANUBIA_WORLD_WIDTH, h: DANUBIA_WORLD_HEIGHT },
+      areaKm2: Math.round((DANUBIA_WORLD_WIDTH * mapState.settings.metersPerTile / 1000) * (DANUBIA_WORLD_HEIGHT * mapState.settings.metersPerTile / 1000)),
       population: builtInPlaces.reduce((sum, place) => sum + (place.population || 0), 0),
-      continents: 8,
+      continents: 12,
     };
   }
 
@@ -1230,7 +1327,7 @@
     const height = clamp(Math.round(map.resolutionH || 1152), 576, 1536);
     fantasyMapCanvas.width = width;
     fantasyMapCanvas.height = height;
-    fantasyMapCtx.imageSmoothingEnabled = false;
+    fantasyMapCtx.imageSmoothingEnabled = true;
     const image = fantasyMapCtx.createImageData(width, height);
     const data = image.data;
     const continents = danubiaContinents();
@@ -1249,24 +1346,35 @@
     }
 
     fantasyMapCtx.putImageData(image, 0, 0);
+    drawDanubiaParchmentWash(fantasyMapCtx, width, height, map.seed);
+    drawDanubiaCoastlines(fantasyMapCtx, width, height, map.seed, continents);
     drawDanubiaSeaDetail(fantasyMapCtx, width, height, map.seed);
     drawDanubiaRivers(fantasyMapCtx, width, height);
+    drawDanubiaTerrainSymbols(fantasyMapCtx, width, height, map.seed, continents);
     drawDanubiaFields(fantasyMapCtx, width, height, map.seed);
+    drawDanubiaThaisBay(fantasyMapCtx, width, height);
     drawDanubiaRoads(fantasyMapCtx, width, height);
     drawDanubiaSettlements(fantasyMapCtx, width, height, map.seed);
+    drawDanubiaRegionLabels(fantasyMapCtx, width, height);
     drawDanubiaMapFrame(fantasyMapCtx, width, height);
   }
 
   function danubiaContinents() {
     return [
-      { id: "coroa-norte", cx: 0.30, cy: 0.18, rx: 0.18, ry: 0.13, biome: "snow" },
-      { id: "cinzas", cx: 0.62, cy: 0.28, rx: 0.17, ry: 0.14, biome: "volcano" },
-      { id: "danubia-central", cx: 0.45, cy: 0.53, rx: 0.25, ry: 0.23, biome: "green" },
-      { id: "sul-tropical", cx: 0.42, cy: 0.82, rx: 0.20, ry: 0.15, biome: "jungle" },
-      { id: "solavar", cx: 0.29, cy: 0.70, rx: 0.16, ry: 0.13, biome: "desert" },
-      { id: "brejos-leste", cx: 0.64, cy: 0.67, rx: 0.17, ry: 0.15, biome: "swamp" },
-      { id: "costa-rochosa", cx: 0.79, cy: 0.50, rx: 0.14, ry: 0.18, biome: "rock" },
-      { id: "arquipelago-artico", cx: 0.82, cy: 0.18, rx: 0.12, ry: 0.10, biome: "ice" },
+      { id: "coroa-norte", cx: 0.315, cy: 0.155, rx: 0.155, ry: 0.105, biome: "snow" },
+      { id: "cinzas", cx: 0.625, cy: 0.285, rx: 0.150, ry: 0.115, biome: "volcano" },
+      { id: "danubia-central", cx: 0.455, cy: 0.525, rx: 0.245, ry: 0.210, biome: "green" },
+      { id: "sul-tropical", cx: 0.430, cy: 0.805, rx: 0.180, ry: 0.130, biome: "jungle" },
+      { id: "solavar", cx: 0.255, cy: 0.660, rx: 0.155, ry: 0.120, biome: "desert" },
+      { id: "brejos-leste", cx: 0.655, cy: 0.665, rx: 0.155, ry: 0.135, biome: "swamp" },
+      { id: "costa-rochosa", cx: 0.795, cy: 0.500, rx: 0.145, ry: 0.165, biome: "rock" },
+      { id: "arquipelago-artico", cx: 0.835, cy: 0.150, rx: 0.110, ry: 0.085, biome: "ice" },
+      { id: "ilhas-ocidentais", cx: 0.105, cy: 0.450, rx: 0.105, ry: 0.150, biome: "green", minor: true },
+      { id: "alcinor", cx: 0.135, cy: 0.845, rx: 0.145, ry: 0.105, biome: "jungle", minor: true },
+      { id: "fiordes-do-leste", cx: 0.920, cy: 0.360, rx: 0.075, ry: 0.185, biome: "rock", minor: true },
+      { id: "arquipelago-sul", cx: 0.745, cy: 0.875, rx: 0.120, ry: 0.070, biome: "swamp", minor: true },
+      { id: "costa-dourada", cx: 0.215, cy: 0.310, rx: 0.105, ry: 0.085, biome: "desert", minor: true },
+      { id: "ilhas-negras", cx: 0.905, cy: 0.760, rx: 0.085, ry: 0.090, biome: "volcano", minor: true },
     ];
   }
 
@@ -1287,54 +1395,98 @@
     }
 
     const wave = fbm(nx * 30, ny * 30, seed + 123, 2);
-    if (bestScore < -0.03) return wave > 0.62 ? [65, 112, 143] : [58, 103, 135];
-    if (bestScore < 0.045) return [232, 191, 127];
+    if (bestScore < 0.012) return shadeRgb(wave > 0.62 ? [103, 151, 169] : [86, 134, 159], wave, 11);
+    if (bestScore < 0.078) return shadeRgb([211, 190, 130], wave, 10);
 
     const detail = fbm(nx * 36, ny * 36, seed + 303, 3);
     const rough = fbm(nx * 11, ny * 11, seed + 707, 4);
     if (best.biome === "snow" || best.biome === "ice") {
-      if (rough > 0.68) return [125, 130, 124];
-      if (detail > 0.52) return [222, 228, 220];
-      return [194, 205, 198];
+      if (rough > 0.68) return shadeRgb([138, 139, 129], detail, 9);
+      if (detail > 0.52) return shadeRgb([225, 226, 211], rough, 7);
+      return shadeRgb([190, 202, 197], detail, 8);
     }
     if (best.biome === "volcano") {
-      if (rough > 0.73) return [92, 88, 80];
-      if (detail > 0.82) return [210, 82, 36];
-      if (rough > 0.54) return [126, 119, 101];
-      return [112, 100, 74];
+      if (rough > 0.73) return shadeRgb([86, 82, 73], detail, 8);
+      if (detail > 0.84) return [174, 84, 48];
+      if (rough > 0.54) return shadeRgb([126, 113, 89], detail, 8);
+      return shadeRgb([103, 94, 72], rough, 7);
     }
     if (best.biome === "desert") {
-      if (rough > 0.70) return [140, 120, 85];
-      if (detail < 0.24) return [242, 199, 135];
-      return [205, 162, 89];
+      if (rough > 0.70) return shadeRgb([151, 128, 85], detail, 9);
+      if (detail < 0.24) return shadeRgb([221, 190, 126], rough, 7);
+      return shadeRgb([202, 165, 97], detail, 8);
     }
     if (best.biome === "swamp") {
-      if (detail > 0.68) return [58, 97, 70];
-      if (rough < 0.28) return [83, 116, 82];
-      return [112, 101, 62];
+      if (detail > 0.68) return shadeRgb([70, 103, 73], rough, 8);
+      if (rough < 0.28) return shadeRgb([98, 126, 87], detail, 8);
+      return shadeRgb([118, 111, 72], rough, 7);
     }
     if (best.biome === "rock") {
-      if (rough > 0.58) return [111, 114, 106];
-      if (detail > 0.66) return [62, 90, 62];
-      return [140, 131, 100];
+      if (rough > 0.58) return shadeRgb([122, 121, 107], detail, 9);
+      if (detail > 0.66) return shadeRgb([76, 103, 73], rough, 8);
+      return shadeRgb([148, 137, 102], detail, 7);
     }
     if (best.biome === "jungle") {
-      if (detail > 0.56) return [0, 88, 24];
-      if (rough > 0.62) return [28, 112, 43];
-      return [20, 168, 38];
+      if (detail > 0.56) return shadeRgb([45, 98, 58], rough, 8);
+      if (rough > 0.62) return shadeRgb([63, 115, 65], detail, 8);
+      return shadeRgb([91, 143, 76], rough, 8);
     }
-    if (detail > 0.70) return [0, 98, 22];
-    if (rough > 0.64) return [109, 114, 92];
-    if (detail < 0.20) return [57, 172, 51];
-    return [24, 198, 29];
+    if (detail > 0.70) return shadeRgb([65, 113, 60], rough, 8);
+    if (rough > 0.64) return shadeRgb([126, 132, 100], detail, 8);
+    if (detail < 0.20) return shadeRgb([145, 172, 105], rough, 7);
+    return shadeRgb([124, 156, 91], detail, 8);
+  }
+
+  function shadeRgb(rgb, noise, amount) {
+    const delta = Math.round((noise - 0.5) * amount * 2);
+    return rgb.map((channel) => clamp(channel + delta, 0, 255));
+  }
+
+  function drawDanubiaParchmentWash(ctx, width, height, seed) {
+    const rng = mulberry32(seed + 8113);
+    ctx.save();
+    ctx.globalCompositeOperation = "soft-light";
+    ctx.fillStyle = "rgba(228, 206, 155, 0.20)";
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = "rgba(65, 48, 29, 0.035)";
+    for (let i = 0; i < 520; i += 1) {
+      ctx.fillRect(rng() * width, rng() * height, 1 + rng() * 2, 1 + rng() * 2);
+    }
+    ctx.restore();
+  }
+
+  function drawDanubiaCoastlines(ctx, width, height, seed, continents) {
+    ctx.save();
+    continents.forEach((continent, index) => {
+      const points = [];
+      const count = 94;
+      for (let i = 0; i <= count; i += 1) {
+        const angle = (i / count) * Math.PI * 2;
+        const wobble = 1 + (fbm(Math.cos(angle) * 2.7 + index, Math.sin(angle) * 2.7 - index, seed + index * 499, 3) - 0.5) * 0.14;
+        points.push({
+          x: (continent.cx + Math.cos(angle) * continent.rx * wobble) * width,
+          y: (continent.cy + Math.sin(angle) * continent.ry * wobble) * height,
+        });
+      }
+      ctx.strokeStyle = "rgba(42, 35, 24, 0.30)";
+      ctx.lineWidth = Math.max(2, width * 0.0015);
+      drawPolyline(ctx, points);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(240, 224, 170, 0.55)";
+      ctx.lineWidth = Math.max(1, width * 0.0008);
+      drawPolyline(ctx, points);
+      ctx.stroke();
+    });
+    ctx.restore();
   }
 
   function drawDanubiaSeaDetail(ctx, width, height, seed) {
     const rng = mulberry32(seed + 6001);
     ctx.save();
-    ctx.strokeStyle = "rgba(158, 202, 211, 0.22)";
+    ctx.strokeStyle = "rgba(226, 238, 223, 0.20)";
     ctx.lineWidth = 1;
-    for (let i = 0; i < 220; i += 1) {
+    for (let i = 0; i < 280; i += 1) {
       const x = rng() * width;
       const y = rng() * height;
       const len = 10 + rng() * 30;
@@ -1365,6 +1517,89 @@
       drawBezierPath(ctx, river, width, height);
       ctx.stroke();
     });
+    ctx.restore();
+  }
+
+  function drawDanubiaTerrainSymbols(ctx, width, height, seed, continents) {
+    const rng = mulberry32(seed + 9321);
+    ctx.save();
+    continents.forEach((continent, index) => {
+      const dense = continent.biome === "jungle" || continent.biome === "green" || continent.biome === "swamp";
+      const rocky = continent.biome === "rock" || continent.biome === "volcano" || continent.biome === "snow" || continent.biome === "ice";
+      const arid = continent.biome === "desert";
+      const count = dense ? 190 : rocky ? 110 : arid ? 70 : 100;
+      for (let i = 0; i < count; i += 1) {
+        const angle = rng() * Math.PI * 2;
+        const radius = Math.sqrt(rng()) * (0.72 + rng() * 0.22);
+        const x = (continent.cx + Math.cos(angle) * continent.rx * radius) * width;
+        const y = (continent.cy + Math.sin(angle) * continent.ry * radius) * height;
+        if (x < 20 || y < 20 || x > width - 20 || y > height - 20) continue;
+        const scale = Math.max(0.55, width / 1536) * (0.74 + rng() * 0.55);
+        if (dense) drawAtlasTree(ctx, x, y, scale, rng, continent.biome);
+        else if (rocky) drawAtlasMountain(ctx, x, y, scale, rng, continent.biome);
+        else if (arid) drawAtlasDune(ctx, x, y, scale, rng);
+        else if (rng() > 0.44) drawAtlasTree(ctx, x, y, scale * 0.86, rng, continent.biome);
+      }
+    });
+    ctx.restore();
+  }
+
+  function drawAtlasTree(ctx, x, y, scale, rng, biome) {
+    ctx.save();
+    ctx.translate(x, y);
+    const dark = biome === "jungle" ? "#274c34" : "#36583b";
+    const light = biome === "swamp" ? "#657245" : "#5f7a4c";
+    ctx.strokeStyle = "rgba(31, 38, 27, 0.55)";
+    ctx.fillStyle = rng() > 0.5 ? dark : light;
+    ctx.lineWidth = Math.max(0.8, scale * 0.9);
+    ctx.beginPath();
+    ctx.moveTo(0, -7 * scale);
+    ctx.lineTo(5 * scale, 4 * scale);
+    ctx.lineTo(-5 * scale, 4 * scale);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(46, 38, 23, 0.45)";
+    ctx.beginPath();
+    ctx.moveTo(0, 3 * scale);
+    ctx.lineTo(0, 8 * scale);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawAtlasMountain(ctx, x, y, scale, rng, biome) {
+    ctx.save();
+    ctx.translate(x, y);
+    const snowy = biome === "snow" || biome === "ice";
+    ctx.fillStyle = snowy ? "rgba(226, 226, 211, 0.58)" : "rgba(112, 105, 86, 0.60)";
+    ctx.strokeStyle = "rgba(42, 36, 27, 0.50)";
+    ctx.lineWidth = Math.max(0.9, scale);
+    ctx.beginPath();
+    ctx.moveTo(-7 * scale, 6 * scale);
+    ctx.lineTo(-1 * scale, -7 * scale);
+    ctx.lineTo(3 * scale, 1 * scale);
+    ctx.lineTo(8 * scale, 6 * scale);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    if (rng() > 0.45) {
+      ctx.beginPath();
+      ctx.moveTo(-1 * scale, -7 * scale);
+      ctx.lineTo(0, 3 * scale);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawAtlasDune(ctx, x, y, scale) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = "rgba(94, 70, 35, 0.34)";
+    ctx.lineWidth = Math.max(0.8, scale * 0.8);
+    ctx.beginPath();
+    ctx.moveTo(-8 * scale, 2 * scale);
+    ctx.quadraticCurveTo(0, -5 * scale, 9 * scale, 2 * scale);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1414,6 +1649,69 @@
     ctx.restore();
   }
 
+  function drawDanubiaThaisBay(ctx, width, height) {
+    const coast = [
+      [0.405, 0.748],
+      [0.445, 0.727],
+      [0.492, 0.738],
+      [0.535, 0.728],
+      [0.585, 0.748],
+      [0.638, 0.735],
+    ];
+    const waterPolygon = [
+      ...coast,
+      [0.665, 0.860],
+      [0.625, 1.040],
+      [0.395, 1.040],
+      [0.365, 0.860],
+    ].map(([x, y]) => ({ x: x * width, y: y * height }));
+    const coastPoints = coast.map(([x, y]) => ({ x: x * width, y: y * height }));
+    ctx.save();
+    drawClosedPolygon(ctx, waterPolygon);
+    ctx.fillStyle = "#6e9fba";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(48, 73, 77, 0.78)";
+    ctx.lineWidth = Math.max(6, width * 0.005);
+    drawPolyline(ctx, coastPoints);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(226, 214, 163, 0.90)";
+    ctx.lineWidth = Math.max(3, width * 0.0024);
+    drawPolyline(ctx, coastPoints);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.32;
+    ctx.strokeStyle = "rgba(231, 246, 238, 0.72)";
+    ctx.lineWidth = Math.max(1.2, width * 0.0011);
+    for (let i = 0; i < 5; i += 1) {
+      const y = height * (0.780 + i * 0.035);
+      ctx.beginPath();
+      ctx.moveTo(width * 0.405, y);
+      ctx.bezierCurveTo(width * 0.475, y + height * 0.010, width * 0.545, y - height * 0.012, width * 0.625, y + height * 0.005);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = "rgba(75, 48, 27, 0.70)";
+    ctx.fillStyle = "#9b7650";
+    for (let i = 0; i < 6; i += 1) {
+      const x = width * (0.448 + i * 0.030);
+      const y = height * (0.746 + (i % 2) * 0.010);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((i - 3) * 0.018);
+      roundedRect(ctx, -width * 0.0032, 0, width * 0.0064, height * 0.060, Math.max(2, width * 0.0012));
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.font = `700 ${clamp(width * 0.011, 13, 22)}px Georgia`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(35, 50, 57, 0.62)";
+    ctx.fillText("Baia de Thais", width * 0.515, height * 0.825);
+    ctx.restore();
+  }
+
   function drawDanubiaRoads(ctx, width, height) {
     ctx.save();
     ctx.lineCap = "round";
@@ -1421,12 +1719,12 @@
     routeSets.forEach((route) => {
       const points = route.map((id) => findPlace(id)).filter(Boolean).map((place) => worldCanvasPoint(place, width, height));
       if (points.length < 2) return;
-      ctx.strokeStyle = "rgba(73, 51, 28, 0.80)";
-      ctx.lineWidth = Math.max(3, width * 0.0026);
+      ctx.strokeStyle = "rgba(62, 47, 29, 0.58)";
+      ctx.lineWidth = Math.max(2.5, width * 0.0022);
       drawPolyline(ctx, points);
       ctx.stroke();
-      ctx.strokeStyle = "rgba(213, 181, 98, 0.88)";
-      ctx.lineWidth = Math.max(1, width * 0.0011);
+      ctx.strokeStyle = "rgba(236, 213, 148, 0.82)";
+      ctx.lineWidth = Math.max(1, width * 0.0009);
       drawPolyline(ctx, points);
       ctx.stroke();
     });
@@ -1440,6 +1738,41 @@
       const p = worldCanvasPoint(place, width, height);
       if (place.village) drawDanubiaVillageIcon(ctx, p.x, p.y, rng);
       else drawDanubiaCityIcon(ctx, p.x, p.y, place, rng);
+    });
+    ctx.restore();
+  }
+
+  function drawDanubiaRegionLabels(ctx, width, height) {
+    const labels = [
+      ["Coroa Norte", 0.28, 0.105, -0.06],
+      ["Cinzas de Bhalrock", 0.63, 0.205, 0.05],
+      ["Danubia Central", 0.45, 0.500, -0.03],
+      ["Selvas do Sul", 0.43, 0.765, 0.05],
+      ["Solavar", 0.285, 0.620, -0.20],
+      ["Brejos Leste", 0.655, 0.640, 0.10],
+      ["Costa Rochosa", 0.785, 0.470, 0.16],
+      ["Arquipelago Artico", 0.825, 0.115, 0.08],
+      ["Ilhas Ocidentais", 0.108, 0.410, -0.20],
+      ["Alcinor", 0.138, 0.808, 0.08],
+      ["Fiordes do Leste", 0.912, 0.330, 0.38],
+      ["Arquipelago Sul", 0.744, 0.838, -0.05],
+    ];
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    labels.forEach(([name, x, y, rotation]) => {
+      const size = clamp(width * 0.016, 18, 34);
+      ctx.save();
+      ctx.translate(x * width, y * height);
+      ctx.rotate(rotation);
+      ctx.font = `900 ${size}px Cinzel, Georgia`;
+      ctx.letterSpacing = "0px";
+      ctx.strokeStyle = "rgba(236, 224, 184, 0.58)";
+      ctx.lineWidth = size * 0.22;
+      ctx.fillStyle = "rgba(45, 35, 23, 0.44)";
+      ctx.strokeText(name.toUpperCase(), 0, 0);
+      ctx.fillText(name.toUpperCase(), 0, 0);
+      ctx.restore();
     });
     ctx.restore();
   }
@@ -1513,19 +1846,53 @@
 
   function drawDanubiaMapFrame(ctx, width, height) {
     ctx.save();
-    ctx.strokeStyle = "rgba(26, 20, 13, 0.78)";
-    ctx.lineWidth = 10;
-    ctx.strokeRect(5, 5, width - 10, height - 10);
-    ctx.strokeStyle = "rgba(238, 214, 148, 0.84)";
+    ctx.strokeStyle = "rgba(37, 28, 18, 0.74)";
+    ctx.lineWidth = 12;
+    ctx.strokeRect(7, 7, width - 14, height - 14);
+    ctx.strokeStyle = "rgba(239, 218, 159, 0.82)";
     ctx.lineWidth = 2;
-    ctx.setLineDash([14, 9]);
-    ctx.strokeRect(18, 18, width - 36, height - 36);
+    ctx.setLineDash([16, 10]);
+    ctx.strokeRect(24, 24, width - 48, height - 48);
     ctx.setLineDash([]);
-    ctx.fillStyle = "rgba(20, 17, 12, 0.82)";
-    ctx.fillRect(30, 30, 210, 42);
+    ctx.fillStyle = "rgba(30, 24, 16, 0.76)";
+    roundedRect(ctx, 34, 34, 270, 58, 8);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(239, 218, 159, 0.58)";
+    ctx.stroke();
     ctx.fillStyle = "#f0d48b";
-    ctx.font = "700 24px Georgia";
-    ctx.fillText("DANUBIA", 44, 58);
+    ctx.font = "900 30px Cinzel, Georgia";
+    ctx.fillText("DANUBIA", 52, 68);
+    ctx.font = "700 13px Georgia";
+    ctx.fillText("Atlas original de campanha", 185, 69);
+    drawDanubiaCompass(ctx, width - 105, height - 104, Math.max(34, width * 0.034));
+    ctx.restore();
+  }
+
+  function drawDanubiaCompass(ctx, x, y, r) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = "rgba(45, 34, 20, 0.72)";
+    ctx.fillStyle = "rgba(239, 218, 159, 0.70)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 8; i += 1) {
+      const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a - 0.16) * r * 0.28, Math.sin(a - 0.16) * r * 0.28);
+      ctx.lineTo(Math.cos(a) * r * (i % 2 === 0 ? 0.90 : 0.58), Math.sin(a) * r * (i % 2 === 0 ? 0.90 : 0.58));
+      ctx.lineTo(Math.cos(a + 0.16) * r * 0.28, Math.sin(a + 0.16) * r * 0.28);
+      ctx.closePath();
+      ctx.fillStyle = i === 0 ? "rgba(129, 47, 37, 0.92)" : "rgba(239, 218, 159, 0.70)";
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(45, 34, 20, 0.82)";
+    ctx.font = `900 ${Math.round(r * 0.34)}px Cinzel, Georgia`;
+    ctx.textAlign = "center";
+    ctx.fillText("N", 0, -r - 8);
     ctx.restore();
   }
 
@@ -2000,6 +2367,9 @@
   }
 
   function mapVisibleDrawBounds() {
+    if (mapState.fantasyMap?.fullWorld && mapState.fantasyMap.floor === mapState.floor) {
+      return { ...mapState.fantasyMap.bounds };
+    }
     let x1 = 0;
     let y1 = 0;
     let x2 = mapImage.width;
@@ -2012,6 +2382,13 @@
       y2 = Math.max(y2, bounds.y + bounds.h);
     }
     return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  }
+
+  function mapDrawingBounds() {
+    if (mapState.fantasyMap?.fullWorld && mapState.fantasyMap.floor === mapState.floor) {
+      return { ...mapState.fantasyMap.bounds };
+    }
+    return { x: 0, y: 0, w: mapImage.width, h: mapImage.height };
   }
 
   function drawMapCropScreen(ctx) {
@@ -2205,17 +2582,18 @@
     const imagePoint = screenToMapImage(screenPoint);
     const hit = hitTestMarker(screenPoint);
 
+    if (spacePanActive || event.button === 1) {
+      startMapPan(screenPoint);
+      return;
+    }
+
     if (hit && mapState.tool !== "marker" && mapState.tool !== "paint" && mapState.tool !== "crop") {
       selectMarker(hit.id, false);
       return;
     }
 
     if (IS_PLAYER_VIEW) {
-      mapState.dragging = true;
-      mapState.dragStart = {
-        point: screenPoint,
-        view: { ...mapState.view },
-      };
+      startMapPan(screenPoint);
       return;
     }
 
@@ -2244,6 +2622,10 @@
       return;
     }
 
+    startMapPan(screenPoint);
+  }
+
+  function startMapPan(screenPoint) {
     mapState.dragging = true;
     mapState.dragStart = {
       point: screenPoint,
@@ -2254,6 +2636,14 @@
   function handleMapPointerMove(event) {
     if (!mapState.ready) return;
     const screenPoint = getCanvasPoint(mapCanvas, event);
+    if (mapState.dragging && mapState.dragStart) {
+      const dx = screenPoint.x - mapState.dragStart.point.x;
+      const dy = screenPoint.y - mapState.dragStart.point.y;
+      mapState.view.x = mapState.dragStart.view.x + dx;
+      mapState.view.y = mapState.dragStart.view.y + dy;
+      renderMap();
+      return;
+    }
     if (mapState.tool === "ruler" && mapState.ruler.start && !mapState.ruler.end) {
       mapState.ruler.end = screenToMapImage(screenPoint);
       renderMap();
@@ -2268,12 +2658,6 @@
       continueMapCrop(screenToMapImage(screenPoint));
       return;
     }
-    if (!mapState.dragging || !mapState.dragStart) return;
-    const dx = screenPoint.x - mapState.dragStart.point.x;
-    const dy = screenPoint.y - mapState.dragStart.point.y;
-    mapState.view.x = mapState.dragStart.view.x + dx;
-    mapState.view.y = mapState.dragStart.view.y + dy;
-    renderMap();
   }
 
   function handleMapPointerUp(event) {
@@ -3455,7 +3839,7 @@
     dungeonCanvas.setPointerCapture(event.pointerId);
     const point = getCanvasPoint(dungeonCanvas, event);
     const cell = screenToDungeonCell(point);
-    if (IS_PLAYER_VIEW) {
+    if (IS_PLAYER_VIEW || spacePanActive || event.button === 1) {
       dungeonState.drawing = true;
       dungeonState.panStart = { point, view: { ...dungeonState.view } };
       return;
@@ -3704,6 +4088,7 @@
   }
 
   function loadThaisIllustratedCity() {
+    cityState.settings.cityId = "thais";
     cityState.settings.name = "Thais";
     cityState.settings.population = 273110;
     cityState.settings.areaKm2 = 35;
@@ -4110,14 +4495,20 @@
       ctx.restore();
       return;
     }
+    if (!manual) {
+      ctx.fillStyle = "rgba(45, 37, 28, 0.18)";
+      ctx.fillRect(-building.w / 2 + building.w * 0.08, -building.h / 2 + building.h * 0.10, building.w, building.h);
+    }
     ctx.fillStyle = building.color || buildingColor({ id: "default" }, () => 0.5);
     ctx.fillRect(-building.w / 2, -building.h / 2, building.w, building.h);
     ctx.strokeStyle = manual ? theme.markerStroke : "rgba(37, 32, 25, 0.72)";
     ctx.lineWidth = manual ? 2.6 : 1.8;
     ctx.strokeRect(-building.w / 2, -building.h / 2, building.w, building.h);
     if (building.kind === "house" || building.generated) {
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
-      ctx.lineWidth = 1;
+      ctx.fillStyle = "rgba(255, 242, 198, 0.18)";
+      ctx.fillRect(-building.w * 0.36, -building.h * 0.38, building.w * 0.72, building.h * 0.16);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.24)";
+      ctx.lineWidth = Math.max(1, Math.min(building.w, building.h) * 0.04);
       ctx.beginPath();
       ctx.moveTo(-building.w * 0.34, 0);
       ctx.lineTo(building.w * 0.34, 0);
@@ -4235,24 +4626,27 @@
 
   function generateIllustratedCity() {
     const settings = cityState.settings;
+    const profile = cityProfile(settings.cityId || settings.name);
     const rng = createRng(`${settings.seed}:${settings.visualStyle}:${settings.densityMode}:${settings.buildingMode}`);
     const areaM2 = settings.areaKm2 * 1000000;
     const aspect = 1.42;
     const widthM = Math.sqrt(areaM2 * aspect);
     const heightM = areaM2 / widthM;
-    const center = { x: widthM * 0.53, y: heightM * 0.49 };
+    const coastal = profile.water === "sea-port" || profile.water === "cliff-port" || profile.water === "ice-port";
+    const center = { x: widthM * 0.52, y: heightM * (coastal ? 0.42 : 0.50) };
     const wall = buildIllustratedWall(widthM, heightM, center, rng);
-    const river = settings.showWater ? buildIllustratedRiver(widthM, heightM, rng) : [];
-    const districts = buildIllustratedDistricts(widthM, heightM, wall, rng);
-    const roads = buildIllustratedRoads(widthM, heightM, wall, districts, rng);
+    const water = settings.showWater ? buildIllustratedWater(widthM, heightM, rng, profile) : null;
+    const river = water?.path || [];
+    const districts = buildIllustratedDistricts(widthM, heightM, wall, rng, profile);
+    const roads = buildIllustratedRoads(widthM, heightM, wall, districts, rng, profile);
     const fields = buildIllustratedFields(widthM, heightM, wall, rng);
-    const trees = buildIllustratedTrees(widthM, heightM, wall, districts, river, rng);
+    const trees = buildIllustratedTrees(widthM, heightM, wall, districts, water, rng);
     const blocks = buildIllustratedBlocks(widthM, heightM, wall, districts, rng);
-    const buildings = buildIllustratedBuildings(blocks, districts, roads, rng);
-    const markers = buildIllustratedMarkers(widthM, heightM, wall, center);
+    const buildings = buildIllustratedBuildings(blocks, districts, roads, rng, water);
+    const markers = buildIllustratedMarkers(widthM, heightM, wall, center, profile);
 
     cityState.data = {
-      mapVersion: 4,
+      mapVersion: DANUBIA_CITY_MAP_VERSION,
       name: settings.name,
       population: settings.population,
       areaKm2: settings.areaKm2,
@@ -4260,6 +4654,8 @@
       heightM,
       center,
       wall,
+      profile,
+      water,
       river,
       waterWidth: Math.max(150, Math.min(widthM, heightM) * 0.042),
       fields,
@@ -4277,20 +4673,20 @@
   }
 
   function buildIllustratedWall(width, height, center, rng) {
-    const rx = width * 0.43;
-    const ry = height * 0.40;
+    const rx = width * 0.455;
+    const ry = height * 0.435;
     const points = [];
-    const count = 46;
+    const count = 58;
     for (let i = 0; i < count; i += 1) {
       const angle = -Math.PI / 2 + (i / count) * Math.PI * 2;
-      const westPull = Math.cos(angle) < -0.72 ? 0.84 : 1;
-      const northRise = Math.sin(angle) < -0.62 ? 0.92 : 1;
-      const southPush = Math.sin(angle) > 0.50 ? 1.13 : 1;
-      const eastBend = Math.cos(angle) > 0.72 ? 1.04 : 1;
-      const jitterScale = 0.94 + rng() * 0.12;
+      const westPull = Math.cos(angle) < -0.72 ? 0.88 : 1;
+      const northRise = Math.sin(angle) < -0.62 ? 0.95 : 1;
+      const southPush = Math.sin(angle) > 0.50 ? 1.08 : 1;
+      const eastBend = Math.cos(angle) > 0.72 ? 1.03 : 1;
+      const jitterScale = 0.96 + rng() * 0.08;
       points.push({
-        x: center.x + Math.cos(angle) * rx * jitterScale * westPull * eastBend + Math.sin(angle * 2.7) * width * 0.014,
-        y: center.y + Math.sin(angle) * ry * jitterScale * southPush * northRise + Math.cos(angle * 2.2) * height * 0.010,
+        x: center.x + Math.cos(angle) * rx * jitterScale * westPull * eastBend + Math.sin(angle * 2.7) * width * 0.010,
+        y: center.y + Math.sin(angle) * ry * jitterScale * southPush * northRise + Math.cos(angle * 2.2) * height * 0.008,
       });
     }
     const gates = [
@@ -4306,19 +4702,33 @@
     return { center, rx, ry, points, gates };
   }
 
-  function buildIllustratedDistricts(width, height, wall, rng) {
+  function buildIllustratedDistricts(width, height, wall, rng, profile = cityProfile()) {
     const c = wall.center;
+    if (profile.water === "sea-port" || profile.water === "cliff-port" || profile.water === "ice-port") {
+      return [
+        makeIllustratedDistrict("castle", "Cidadela Real", c.x - width * 0.01, c.y - height * 0.28, width * 0.25, height * 0.13, -0.02, "#c6beb0", 0.30, 3, rng),
+        makeIllustratedDistrict("old", "Centro Antigo", c.x - width * 0.03, c.y - height * 0.02, width * 0.32, height * 0.20, 0.05, "#cdbb98", 0.98, 3, rng),
+        makeIllustratedDistrict("market", "Grande Orvalho", c.x + width * 0.02, c.y + height * 0.18, width * 0.25, height * 0.14, -0.04, "#d4c08e", 0.84, 3, rng),
+        makeIllustratedDistrict("port", "Porto Real", c.x - width * 0.02, c.y + height * 0.31, width * 0.31, height * 0.12, 0.02, "#b99c7d", 0.78, 3, rng),
+        makeIllustratedDistrict("craft", "Oficinas e Docas", c.x - width * 0.23, c.y + height * 0.20, width * 0.23, height * 0.16, -0.10, "#b48b6d", 0.86, 2, rng),
+        makeIllustratedDistrict("noble", "Bairro Nobre", c.x + width * 0.24, c.y - height * 0.07, width * 0.24, height * 0.17, -0.12, "#cec3aa", 0.48, 2, rng),
+        makeIllustratedDistrict("temple", "Distrito dos Templos", c.x + width * 0.25, c.y + height * 0.15, width * 0.20, height * 0.15, 0.08, "#ddd3ba", 0.42, 2, rng),
+        makeIllustratedDistrict("garden", "Jardins Murados", c.x - width * 0.30, c.y - height * 0.12, width * 0.20, height * 0.18, -0.18, "#a8b58f", 0.24, 1, rng),
+        makeIllustratedDistrict("outer", "Bairros Externos", c.x + width * 0.19, c.y + height * 0.35, width * 0.31, height * 0.13, -0.08, "#bd9678", 0.72, 1, rng, true),
+        makeIllustratedDistrict("south", "Cais Baixo", c.x - width * 0.18, c.y + height * 0.37, width * 0.24, height * 0.08, 0.04, "#c09b7c", 0.56, 1, rng, true),
+      ];
+    }
     return [
-      makeIllustratedDistrict("castle", "Cidadela Real", c.x - width * 0.01, c.y - height * 0.33, width * 0.23, height * 0.12, -0.03, "#b9b3a4", 0.34, 3, rng),
-      makeIllustratedDistrict("old", "Centro Antigo", c.x - width * 0.04, c.y - height * 0.07, width * 0.28, height * 0.19, 0.08, "#c7b18b", 0.94, 3, rng),
-      makeIllustratedDistrict("market", "Mercado Grande", c.x + width * 0.09, c.y + height * 0.15, width * 0.24, height * 0.14, -0.06, "#d1bc84", 0.82, 3, rng),
-      makeIllustratedDistrict("port", "Porto e Docas", c.x - width * 0.34, c.y + height * 0.10, width * 0.22, height * 0.24, 0.42, "#b49676", 0.86, 2, rng),
-      makeIllustratedDistrict("craft", "Oficinas e Forjas", c.x - width * 0.18, c.y + height * 0.27, width * 0.23, height * 0.15, -0.08, "#aa8165", 0.88, 2, rng),
-      makeIllustratedDistrict("noble", "Bairro Nobre", c.x + width * 0.24, c.y - height * 0.17, width * 0.23, height * 0.16, -0.13, "#c9b99b", 0.52, 2, rng),
-      makeIllustratedDistrict("temple", "Distrito dos Templos", c.x + width * 0.27, c.y + height * 0.05, width * 0.19, height * 0.14, 0.07, "#d6ceb5", 0.44, 2, rng),
-      makeIllustratedDistrict("garden", "Jardins Murados", c.x - width * 0.30, c.y - height * 0.20, width * 0.19, height * 0.17, -0.18, "#9fb084", 0.30, 1, rng),
-      makeIllustratedDistrict("outer", "Bairros Externos", c.x + width * 0.18, c.y + height * 0.34, width * 0.30, height * 0.15, -0.11, "#b98967", 0.78, 1, rng, true),
-      makeIllustratedDistrict("south", "Arrabalde Sul", c.x - width * 0.06, c.y + height * 0.42, width * 0.24, height * 0.11, 0.04, "#b99578", 0.70, 1, rng, true),
+      makeIllustratedDistrict("castle", "Cidadela Real", c.x - width * 0.02, c.y - height * 0.35, width * 0.25, height * 0.13, -0.02, "#c6beb0", 0.30, 3, rng),
+      makeIllustratedDistrict("old", "Centro Antigo", c.x - width * 0.05, c.y - height * 0.07, width * 0.30, height * 0.21, 0.08, "#cdbb98", 0.98, 3, rng),
+      makeIllustratedDistrict("market", "Mercado Grande", c.x + width * 0.09, c.y + height * 0.15, width * 0.25, height * 0.15, -0.05, "#d4c08e", 0.86, 3, rng),
+      makeIllustratedDistrict("port", "Porto e Docas", c.x - width * 0.36, c.y + height * 0.12, width * 0.23, height * 0.25, 0.38, "#b99c7d", 0.86, 2, rng),
+      makeIllustratedDistrict("craft", "Oficinas e Forjas", c.x - width * 0.19, c.y + height * 0.28, width * 0.24, height * 0.16, -0.07, "#b48b6d", 0.90, 2, rng),
+      makeIllustratedDistrict("noble", "Bairro Nobre", c.x + width * 0.25, c.y - height * 0.18, width * 0.24, height * 0.17, -0.12, "#cec3aa", 0.48, 2, rng),
+      makeIllustratedDistrict("temple", "Distrito dos Templos", c.x + width * 0.29, c.y + height * 0.04, width * 0.20, height * 0.15, 0.08, "#ddd3ba", 0.42, 2, rng),
+      makeIllustratedDistrict("garden", "Jardins Murados", c.x - width * 0.32, c.y - height * 0.21, width * 0.20, height * 0.18, -0.18, "#a8b58f", 0.24, 1, rng),
+      makeIllustratedDistrict("outer", "Bairros Externos", c.x + width * 0.20, c.y + height * 0.36, width * 0.33, height * 0.16, -0.10, "#bd9678", 0.82, 1, rng, true),
+      makeIllustratedDistrict("south", "Arrabalde Sul", c.x - width * 0.07, c.y + height * 0.44, width * 0.27, height * 0.12, 0.04, "#c09b7c", 0.74, 1, rng, true),
     ];
   }
 
@@ -4339,39 +4749,38 @@
     };
   }
 
-  function buildIllustratedRoads(width, height, wall, districts, rng) {
+  function buildIllustratedRoads(width, height, wall, districts, rng, profile = cityProfile()) {
     const roads = [];
     const c = wall.center;
     wall.gates.forEach((gate) => {
-      const bend = { x: (gate.x + c.x) / 2 + jitter(rng, width * 0.035), y: (gate.y + c.y) / 2 + jitter(rng, height * 0.035) };
-      roads.push({ type: "avenue", name: gate.name, points: [gate, bend, c] });
+      const bend = { x: (gate.x + c.x) / 2 + jitter(rng, width * 0.026), y: (gate.y + c.y) / 2 + jitter(rng, height * 0.026) };
+      const plaza = { x: c.x + jitter(rng, width * 0.012), y: c.y + jitter(rng, height * 0.012) };
+      roads.push({ type: "avenue", name: gate.name, points: [gate, bend, plaza] });
     });
-    roads.push({ type: "avenue", name: "Eixo Real", points: [{ x: c.x - width * 0.06, y: c.y - height * 0.34 }, { x: c.x - width * 0.02, y: c.y - height * 0.10 }, c, { x: c.x + width * 0.06, y: c.y + height * 0.25 }] });
-    roads.push({ type: "major", name: "Rua das Docas", points: [{ x: c.x - width * 0.32, y: c.y + height * 0.14 }, { x: c.x - width * 0.13, y: c.y + height * 0.10 }, c, { x: c.x + width * 0.24, y: c.y + height * 0.07 }] });
-    roads.push({ type: "major", name: "Estrada dos Mercadores", points: [{ x: c.x - width * 0.20, y: c.y + height * 0.26 }, { x: c.x + width * 0.06, y: c.y + height * 0.16 }, { x: c.x + width * 0.33, y: c.y + height * 0.22 }] });
-    roads.push({ type: "major", name: "Anel Alto", points: makeRoadArc(c, width * 0.28, height * 0.21, -2.75, 0.10, 18) });
-    roads.push({ type: "major", name: "Anel Baixo", points: makeRoadArc(c, width * 0.31, height * 0.25, 0.05, 2.82, 18) });
+    roads.push({ type: "avenue", name: "Eixo Real", points: [{ x: c.x - width * 0.055, y: c.y - height * 0.36 }, { x: c.x - width * 0.015, y: c.y - height * 0.13 }, c, { x: c.x + width * 0.055, y: c.y + height * 0.28 }] });
+    roads.push({ type: "major", name: "Rua das Docas", points: [{ x: c.x - width * 0.36, y: c.y + height * 0.12 }, { x: c.x - width * 0.18, y: c.y + height * 0.10 }, c, { x: c.x + width * 0.27, y: c.y + height * 0.06 }] });
+    roads.push({ type: "major", name: "Estrada dos Mercadores", points: [{ x: c.x - width * 0.22, y: c.y + height * 0.28 }, { x: c.x + width * 0.05, y: c.y + height * 0.17 }, { x: c.x + width * 0.35, y: c.y + height * 0.23 }] });
+    roads.push({ type: "major", name: "Anel Alto", points: makeRoadArc(c, width * 0.30, height * 0.23, -2.78, 0.12, 26) });
+    roads.push({ type: "major", name: "Anel Baixo", points: makeRoadArc(c, width * 0.33, height * 0.27, 0.03, 2.85, 28) });
     districts.forEach((district) => {
-      const localCount = Math.max(1, district.importance + (cityState.settings.densityMode === "high" ? 1 : 0));
-      for (let i = -localCount; i <= localCount; i += 1) {
-        const t = i / Math.max(1, localCount + 1);
-        const span = district.rx * (0.78 + rng() * 0.12);
-        const offset = t * district.ry * 0.86;
-        const a = localToWorld(district.cx, district.cy, district.angle, -span, offset + jitter(rng, 18));
-        const b = localToWorld(district.cx, district.cy, district.angle, span, offset + jitter(rng, 18));
+      const densityBonus = cityState.settings.densityMode === "high" ? 1 : cityState.settings.densityMode === "medium" ? 1 : 0;
+      const localCount = Math.max(2, district.importance + densityBonus + Math.round(district.density * (profile.water === "sea-port" ? 2.2 : 3)));
+      for (let i = 0; i < localCount; i += 1) {
+        const offset = ((i + 0.5) / localCount - 0.5) * district.ry * 1.42;
+        const span = district.rx * (0.62 + rng() * 0.24);
+        const a = localToWorld(district.cx, district.cy, district.angle, -span, offset + jitter(rng, district.ry * 0.10));
+        const mid = localToWorld(district.cx, district.cy, district.angle, jitter(rng, district.rx * 0.18), offset + jitter(rng, district.ry * 0.16));
+        const b = localToWorld(district.cx, district.cy, district.angle, span, offset + jitter(rng, district.ry * 0.10));
         if (pointInPolygon(a, district.polygon) && pointInPolygon(b, district.polygon)) {
-          roads.push({ type: "street", name: district.name, points: [a, b] });
+          roads.push({ type: district.importance >= 2 && i % 3 === 0 ? "street" : "lane", name: district.name, points: [a, mid, b] });
         }
       }
-      for (let i = -Math.floor(localCount / 2); i <= Math.floor(localCount / 2); i += 1) {
-        const t = i / Math.max(1, localCount);
-        const span = district.ry * 0.66;
-        const offset = t * district.rx * 0.72;
-        const a = localToWorld(district.cx, district.cy, district.angle, offset + jitter(rng, 14), -span);
-        const b = localToWorld(district.cx, district.cy, district.angle, offset + jitter(rng, 14), span);
-        if (pointInPolygon(a, district.polygon) && pointInPolygon(b, district.polygon)) {
-          roads.push({ type: "lane", name: district.name, points: [a, b] });
-        }
+      const connectors = district.importance >= 2 ? 3 : 2;
+      for (let i = 0; i < connectors; i += 1) {
+        const angle = (i / connectors) * Math.PI * 2 + district.angle + rng() * 0.55;
+        const edge = localToWorld(district.cx, district.cy, district.angle, Math.cos(angle) * district.rx * 0.70, Math.sin(angle) * district.ry * 0.70);
+        const mid = { x: (edge.x + c.x) / 2 + jitter(rng, width * 0.018), y: (edge.y + c.y) / 2 + jitter(rng, height * 0.018) };
+        if (pointInPolygon(edge, district.polygon)) roads.push({ type: "street", name: district.name, points: [edge, mid, { x: district.cx, y: district.cy }] });
       }
     });
     return roads;
@@ -4401,6 +4810,88 @@
     ];
   }
 
+  function buildIllustratedWater(width, height, rng, profile) {
+    const seaTypes = new Set(["sea-port", "cliff-port", "ice-port"]);
+    if (seaTypes.has(profile.water)) {
+      const south = profile.portSide !== "west" && profile.portSide !== "east" && profile.portSide !== "north";
+      const west = profile.portSide === "west";
+      const north = profile.portSide === "north";
+      const coast = [];
+      if (south) {
+        coast.push(
+          { x: -width * 0.04, y: height * 0.80 },
+          { x: width * 0.14, y: height * 0.78 + jitter(rng, height * 0.012) },
+          { x: width * 0.30, y: height * 0.82 + jitter(rng, height * 0.014) },
+          { x: width * 0.48, y: height * 0.79 + jitter(rng, height * 0.012) },
+          { x: width * 0.66, y: height * 0.82 + jitter(rng, height * 0.014) },
+          { x: width * 1.04, y: height * 0.79 },
+        );
+        return {
+          type: "sea",
+          side: "south",
+          coast,
+          polygon: [...coast, { x: width * 1.04, y: height * 1.06 }, { x: -width * 0.04, y: height * 1.06 }],
+          docks: makeHarborDocks(width, height, "south", rng),
+        };
+      }
+      if (west) {
+        coast.push(
+          { x: width * 0.18, y: -height * 0.04 },
+          { x: width * 0.13, y: height * 0.22 + jitter(rng, height * 0.014) },
+          { x: width * 0.18, y: height * 0.44 + jitter(rng, height * 0.014) },
+          { x: width * 0.14, y: height * 0.68 + jitter(rng, height * 0.014) },
+          { x: width * 0.19, y: height * 1.04 },
+        );
+        return {
+          type: "sea",
+          side: "west",
+          coast,
+          polygon: [{ x: -width * 0.04, y: -height * 0.04 }, ...coast, { x: -width * 0.04, y: height * 1.06 }],
+          docks: makeHarborDocks(width, height, "west", rng),
+        };
+      }
+      if (north) {
+        coast.push(
+          { x: -width * 0.04, y: height * 0.25 },
+          { x: width * 0.22, y: height * 0.20 + jitter(rng, height * 0.014) },
+          { x: width * 0.50, y: height * 0.24 + jitter(rng, height * 0.014) },
+          { x: width * 0.78, y: height * 0.19 + jitter(rng, height * 0.014) },
+          { x: width * 1.04, y: height * 0.24 },
+        );
+        return {
+          type: "sea",
+          side: "north",
+          coast,
+          polygon: [{ x: -width * 0.04, y: -height * 0.04 }, { x: width * 1.04, y: -height * 0.04 }, ...coast.slice().reverse()],
+          docks: makeHarborDocks(width, height, "north", rng),
+        };
+      }
+    }
+    if (["lake-swamp", "forest-lake", "oasis"].includes(profile.water)) {
+      const cx = profile.water === "oasis" ? width * 0.22 : width * 0.18;
+      const cy = profile.water === "oasis" ? height * 0.70 : height * 0.62;
+      return { type: "lake", cx, cy, rx: width * 0.085, ry: height * 0.075, path: [] };
+    }
+    if (profile.water === "none") return null;
+    return { type: "river", path: buildIllustratedRiver(width, height, rng) };
+  }
+
+  function makeHarborDocks(width, height, side, rng) {
+    const docks = [];
+    const count = side === "south" ? 8 : 6;
+    for (let i = 0; i < count; i += 1) {
+      const t = (i + 0.5) / count;
+      if (side === "south") {
+        docks.push({ x: width * (0.30 + t * 0.36) + jitter(rng, width * 0.01), y: height * (0.800 + rng() * 0.018), length: height * (0.08 + rng() * 0.045), angle: Math.PI / 2 + jitter(rng, 0.08) });
+      } else if (side === "west") {
+        docks.push({ x: width * (0.145 + rng() * 0.025), y: height * (0.30 + t * 0.38), length: width * (0.08 + rng() * 0.05), angle: Math.PI + jitter(rng, 0.08) });
+      } else {
+        docks.push({ x: width * (0.30 + t * 0.36) + jitter(rng, width * 0.01), y: height * (0.215 + rng() * 0.02), length: height * (0.08 + rng() * 0.05), angle: -Math.PI / 2 + jitter(rng, 0.08) });
+      }
+    }
+    return docks;
+  }
+
   function buildIllustratedFields(width, height, wall, rng) {
     const fields = [];
     const count = cityState.settings.densityMode === "low" ? 42 : 64;
@@ -4421,9 +4912,10 @@
     return fields;
   }
 
-  function buildIllustratedTrees(width, height, wall, districts, river, rng) {
+  function buildIllustratedTrees(width, height, wall, districts, water, rng) {
     const trees = [];
     const garden = districts.find((district) => district.id === "garden");
+    const river = water?.path || [];
     const count = cityState.settings.densityMode === "high" ? 430 : cityState.settings.densityMode === "medium" ? 340 : 260;
     for (let i = 0; i < count; i += 1) {
       let x;
@@ -4438,6 +4930,7 @@
         if (pointInCityWall({ x, y }, wall) && rng() < 0.76) continue;
       }
       if (river.length && distanceToPolyline({ x, y }, river) < 130) continue;
+      if (pointInIllustratedWater({ x, y }, water)) continue;
       trees.push({ x, y, r: 13 + rng() * 16, color: rng() < 0.5 ? "#496c55" : "#5f795f" });
     }
     return trees;
@@ -4473,7 +4966,7 @@
     return blocks;
   }
 
-  function buildIllustratedBuildings(blocks, districts, roads, rng) {
+  function buildIllustratedBuildings(blocks, districts, roads, rng, water) {
     if (cityState.settings.buildingMode === "hidden") return [];
     const buildings = [];
     const density = cityDensityFactor();
@@ -4492,6 +4985,7 @@
           const lx = -block.w / 2 + (cx + 0.5) * (block.w / cols) + jitter(rng, block.w / cols * 0.12);
           const ly = -block.h / 2 + (cy + 0.5) * (block.h / rows) + jitter(rng, block.h / rows * 0.12);
           const p = localToWorld(block.x, block.y, block.angle, lx, ly);
+          if (pointInIllustratedWater(p, water)) continue;
           if (roads.some((road) => distanceToPolyline(p, road.points) < roadWidth(road) * 1.6)) continue;
           buildings.push({
             id: `house-${buildings.length}`,
@@ -4511,12 +5005,25 @@
     return buildings.slice(0, cap);
   }
 
-  function buildIllustratedMarkers(width, height, wall, center) {
+  function pointInIllustratedWater(point, water) {
+    if (!point || !water) return false;
+    if (water.type === "sea" && water.polygon?.length) return pointInPolygon(point, water.polygon);
+    if (water.type === "lake") {
+      const dx = (point.x - water.cx) / Math.max(1, water.rx);
+      const dy = (point.y - water.cy) / Math.max(1, water.ry);
+      return dx * dx + dy * dy <= 1;
+    }
+    if (water.type === "river" && water.path?.length) return distanceToPolyline(point, water.path) < 115;
+    return false;
+  }
+
+  function buildIllustratedMarkers(width, height, wall, center, profile = cityProfile()) {
     const gate = (id) => wall.gates.find((item) => item.id === id) || center;
+    const coastal = profile.water === "sea-port" || profile.water === "cliff-port" || profile.water === "ice-port";
     return [
-      { name: "Castelo de Thais", type: "Poder", x: center.x - width * 0.02, y: center.y - height * 0.31, importance: 3 },
+      { name: profile.id === "thais" ? "Castelo de Thais" : "Cidadela Principal", type: "Poder", x: center.x - width * 0.02, y: center.y - height * 0.31, importance: 3 },
       { name: "Grande Orvalho", type: "Praca", x: center.x, y: center.y, importance: 3 },
-      { name: "Docas Reais", type: "Porto", x: center.x - width * 0.30, y: center.y + height * 0.15, importance: 2 },
+      { name: "Docas Reais", type: "Porto", x: coastal ? center.x - width * 0.03 : center.x - width * 0.30, y: coastal ? center.y + height * 0.31 : center.y + height * 0.15, importance: 2 },
       { name: "Mercado das Especiarias", type: "Mercado", x: center.x + width * 0.09, y: center.y + height * 0.15, importance: 2 },
       { name: "Templo das Mares", type: "Templo", x: center.x + width * 0.23, y: center.y + height * 0.04, importance: 2 },
       { name: "Quartel da Porta Leste", type: "Guarda", x: gate("east").x - width * 0.03, y: gate("east").y, importance: 1 },
@@ -4612,7 +5119,7 @@
     ctx.scale(scale, scale);
     drawIllustratedTerrain(ctx, data, theme);
     if (cityState.settings.showFields) drawIllustratedFields(ctx, data, theme);
-    if (cityState.settings.showWater && data.river?.length) drawIllustratedRiver(ctx, data, theme);
+    if (cityState.settings.showWater && (data.water || data.river?.length)) drawIllustratedWater(ctx, data, theme);
     drawIllustratedTrees(ctx, data, theme, false);
     drawIllustratedDistricts(ctx, data, theme);
     drawIllustratedBlocks(ctx, data, theme);
@@ -4639,12 +5146,12 @@
     ctx.fillRect(0, 0, data.widthM, data.heightM);
     ctx.save();
     ctx.strokeStyle = theme.contour;
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 34; i += 1) {
-      const y = (i / 33) * data.heightM;
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 22; i += 1) {
+      const y = (i / 21) * data.heightM;
       ctx.beginPath();
-      for (let x = -60; x <= data.widthM + 60; x += 170) {
-        const py = y + Math.sin(x * 0.002 + i * 0.72) * 34;
+      for (let x = -60; x <= data.widthM + 60; x += 230) {
+        const py = y + Math.sin(x * 0.0014 + i * 0.72) * 28;
         if (x <= -60) ctx.moveTo(x, py);
         else ctx.lineTo(x, py);
       }
@@ -4708,16 +5215,88 @@
     ctx.restore();
   }
 
+  function drawIllustratedWater(ctx, data, theme) {
+    if (data.water?.type === "sea") {
+      ctx.save();
+      drawClosedPolygon(ctx, data.water.polygon);
+      ctx.fillStyle = theme.water;
+      ctx.fill();
+      ctx.strokeStyle = theme.waterEdgeDark;
+      ctx.lineWidth = 18;
+      drawPolyline(ctx, data.water.coast);
+      ctx.stroke();
+      ctx.strokeStyle = theme.waterEdge;
+      ctx.lineWidth = 9;
+      drawPolyline(ctx, data.water.coast);
+      ctx.stroke();
+      ctx.strokeStyle = theme.waterLine;
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 9; i += 1) {
+        const offset = (i + 1) * 34;
+        const shifted = data.water.coast.map((point) => ({
+          x: point.x,
+          y: data.water.side === "north" ? point.y - offset : point.y + offset,
+        }));
+        ctx.globalAlpha = 0.24;
+        drawPolyline(ctx, shifted);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      data.water.docks?.forEach((dock) => drawHarborDock(ctx, dock, theme));
+      ctx.restore();
+      return;
+    }
+    if (data.water?.type === "lake") {
+      ctx.save();
+      ctx.fillStyle = theme.water;
+      ctx.strokeStyle = theme.waterEdgeDark;
+      ctx.lineWidth = 12;
+      ctx.beginPath();
+      ctx.ellipse(data.water.cx, data.water.cy, data.water.rx, data.water.ry, -0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = theme.waterLine;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(data.water.cx, data.water.cy, data.water.rx * 0.70, data.water.ry * 0.62, -0.12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    if (data.river?.length) drawIllustratedRiver(ctx, data, theme);
+  }
+
+  function drawHarborDock(ctx, dock, theme) {
+    ctx.save();
+    ctx.translate(dock.x, dock.y);
+    ctx.rotate(dock.angle);
+    ctx.fillStyle = "#9c7650";
+    ctx.strokeStyle = theme.wallInk;
+    ctx.lineWidth = 3;
+    roundedRect(ctx, -10, -dock.length * 0.08, 20, dock.length, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(61, 43, 26, 0.42)";
+    ctx.lineWidth = 1.4;
+    for (let y = 8; y < dock.length - 8; y += 20) {
+      ctx.beginPath();
+      ctx.moveTo(-8, y);
+      ctx.lineTo(8, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function drawIllustratedDistricts(ctx, data, theme) {
     data.districts?.forEach((district) => {
       ctx.save();
       ctx.fillStyle = district.color;
-      ctx.globalAlpha = 0.16;
+      ctx.globalAlpha = 0.11;
       drawClosedPolygon(ctx, district.polygon);
       ctx.fill();
-      ctx.globalAlpha = 0.18;
+      ctx.globalAlpha = 0.12;
       ctx.strokeStyle = theme.districtLine;
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1;
       drawClosedPolygon(ctx, district.polygon);
       ctx.stroke();
       ctx.restore();
@@ -4726,16 +5305,17 @@
 
   function drawIllustratedBlocks(ctx, data, theme) {
     data.blocks?.forEach((block) => {
+      if (pointInIllustratedWater(block, data.water)) return;
       ctx.save();
       ctx.translate(block.x, block.y);
       ctx.rotate(block.angle || 0);
       ctx.fillStyle = block.plaza ? theme.plaza : theme.blockFill;
       ctx.strokeStyle = block.plaza ? theme.plazaLine : theme.blockLine;
-      ctx.globalAlpha = block.plaza ? 0.92 : 0.34;
+      ctx.globalAlpha = block.plaza ? 0.92 : 0.22;
       roundedRect(ctx, -block.w / 2, -block.h / 2, block.w, block.h, Math.min(18, block.w * 0.08));
       ctx.fill();
-      ctx.globalAlpha = block.plaza ? 0.92 : 0.46;
-      ctx.lineWidth = block.plaza ? 3 : 1.2;
+      ctx.globalAlpha = block.plaza ? 0.92 : 0.28;
+      ctx.lineWidth = block.plaza ? 2.4 : 0.9;
       ctx.stroke();
       if (block.plaza) {
         ctx.beginPath();
@@ -4747,14 +5327,19 @@
   }
 
   function drawIllustratedRoads(ctx, data, theme) {
+    ctx.save();
+    if (data.wall?.points?.length) {
+      drawClosedPolygon(ctx, data.wall.points);
+      ctx.clip();
+    }
     data.roads?.forEach((road) => {
       const width = roadWidth(road);
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.globalAlpha = road.type === "lane" ? 0.42 : road.type === "street" ? 0.68 : 0.95;
+      ctx.globalAlpha = road.type === "lane" ? 0.32 : road.type === "street" ? 0.58 : 0.92;
       ctx.strokeStyle = theme.roadBorder;
-      ctx.lineWidth = width + 7;
+      ctx.lineWidth = width + 5;
       drawPolyline(ctx, road.points);
       ctx.stroke();
       ctx.strokeStyle = road.type === "avenue" ? theme.avenue : road.type === "major" ? theme.road : theme.lane;
@@ -4763,6 +5348,7 @@
       ctx.stroke();
       ctx.restore();
     });
+    ctx.restore();
   }
 
   function drawIllustratedWalls(ctx, data, theme) {
@@ -4818,15 +5404,28 @@
 
   function drawIllustratedTitle(ctx, data, theme) {
     ctx.save();
+    const titleSize = Math.max(120, data.heightM * 0.062);
+    const subtitleSize = Math.max(38, data.heightM * 0.019);
+    const x = data.widthM * 0.045;
+    const y = data.heightM * 0.035;
+    ctx.globalAlpha = 0.78;
+    ctx.fillStyle = "rgba(232, 219, 188, 0.58)";
+    roundedRect(ctx, x - data.widthM * 0.016, y - data.heightM * 0.010, data.widthM * 0.245, data.heightM * 0.115, data.heightM * 0.012);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "rgba(74, 60, 41, 0.44)";
+    ctx.lineWidth = Math.max(3, data.heightM * 0.0013);
+    roundedRect(ctx, x - data.widthM * 0.016, y - data.heightM * 0.010, data.widthM * 0.245, data.heightM * 0.115, data.heightM * 0.012);
+    ctx.stroke();
     ctx.fillStyle = theme.ink;
     ctx.strokeStyle = theme.titleStroke;
-    ctx.lineWidth = 8;
-    ctx.font = `900 ${Math.max(130, data.heightM * 0.07)}px Cinzel, Georgia`;
+    ctx.lineWidth = 7;
+    ctx.font = `900 ${titleSize}px Cinzel, Georgia`;
     ctx.textBaseline = "top";
-    ctx.strokeText(data.name, data.widthM * 0.045, data.heightM * 0.035);
-    ctx.fillText(data.name, data.widthM * 0.045, data.heightM * 0.035);
-    ctx.font = `700 ${Math.max(45, data.heightM * 0.023)}px Georgia`;
-    ctx.fillText(`Pop. ${data.population.toLocaleString("pt-BR")}`, data.widthM * 0.05, data.heightM * 0.115);
+    ctx.strokeText(data.name, x, y);
+    ctx.fillText(data.name, x, y);
+    ctx.font = `700 ${subtitleSize}px Georgia`;
+    ctx.fillText(`Pop. ${data.population.toLocaleString("pt-BR")} | ${data.areaKm2} km2`, x + data.widthM * 0.005, y + titleSize * 0.86);
     ctx.restore();
   }
 
@@ -4906,8 +5505,8 @@
   function cityTheme() {
     const themes = {
       parchment: {
-        outside: "#d8c8a8", land: "#d6c6a6", ink: "#252019", label: "#2e2920", labelHalo: "rgba(226, 212, 177, 0.92)", titleStroke: "rgba(232, 219, 188, 0.9)",
-        contour: "rgba(80, 72, 58, 0.12)", districtLine: "rgba(63, 54, 40, 0.22)", blockFill: "#c9b99b", blockLine: "rgba(49, 42, 32, 0.25)", plaza: "#dccdaa", plazaLine: "#6d5d42",
+        outside: "#d6c7a6", land: "#d8c9a9", ink: "#252019", label: "#2e2920", labelHalo: "rgba(230, 218, 187, 0.92)", titleStroke: "rgba(234, 223, 194, 0.9)",
+        contour: "rgba(80, 72, 58, 0.085)", districtLine: "rgba(63, 54, 40, 0.16)", blockFill: "#cbbb9d", blockLine: "rgba(49, 42, 32, 0.18)", plaza: "#dfd0ae", plazaLine: "#6d5d42",
         roadBorder: "#51483c", avenue: "#efe5ca", road: "#e2d4b7", lane: "#d4c5a6", water: "#91b5b9", waterEdge: "#d9d2bb", waterEdgeDark: "#6d7d7c", waterLine: "rgba(240, 250, 246, 0.42)",
         fieldLine: "rgba(55, 46, 30, 0.28)", tree: "#6f866f", treeInk: "#344330", wallOuter: "#473f35", wallInner: "#b8aa91", wallInk: "#2a241d", markerStroke: "#efe1b8",
         scaleInk: "#2a241d", scaleLight: "#efe1b8", paperGrain: true,
@@ -4927,10 +5526,10 @@
         scaleInk: "#211e17", scaleLight: "#ead99f", paperGrain: false,
       },
       green: {
-        outside: "#a8b89a", land: "#a3b894", ink: "#25231f", label: "#2c2821", labelHalo: "rgba(206, 217, 189, 0.86)", titleStroke: "rgba(218, 226, 199, 0.88)",
-        contour: "rgba(245, 249, 231, 0.17)", districtLine: "rgba(43, 50, 35, 0.20)", blockFill: "#b8b29b", blockLine: "rgba(45, 42, 34, 0.22)", plaza: "#d0c7a7", plazaLine: "#655a3f",
-        roadBorder: "#4b4a3e", avenue: "#eee8d0", road: "#ddd4ba", lane: "#cbc2aa", water: "#78b7c7", waterEdge: "#d7dfc6", waterEdgeDark: "#527986", waterLine: "rgba(239, 250, 247, 0.38)",
-        fieldLine: "rgba(47, 58, 37, 0.30)", tree: "#597a69", treeInk: "#2f4c3d", wallOuter: "#282a27", wallInner: "#aaa58d", wallInk: "#1c1c1a", markerStroke: "#f1dfaa",
+        outside: "#aebc9e", land: "#acbc9d", ink: "#25231f", label: "#2c2821", labelHalo: "rgba(214, 222, 199, 0.88)", titleStroke: "rgba(222, 230, 204, 0.88)",
+        contour: "rgba(245, 249, 231, 0.10)", districtLine: "rgba(43, 50, 35, 0.15)", blockFill: "#bdb59f", blockLine: "rgba(45, 42, 34, 0.17)", plaza: "#d4c9a8", plazaLine: "#655a3f",
+        roadBorder: "#4b4a3e", avenue: "#f1ecd8", road: "#e2d8bd", lane: "#cec5ad", water: "#7fb3bf", waterEdge: "#d9dec8", waterEdgeDark: "#527986", waterLine: "rgba(239, 250, 247, 0.34)",
+        fieldLine: "rgba(47, 58, 37, 0.24)", tree: "#5d7667", treeInk: "#314b3d", wallOuter: "#282a27", wallInner: "#aaa58d", wallInk: "#1c1c1a", markerStroke: "#f1dfaa",
         scaleInk: "#222018", scaleLight: "#f1dfaa", paperGrain: false,
       },
     };
@@ -4942,7 +5541,7 @@
   }
 
   function roadWidth(road) {
-    return road.type === "avenue" ? 42 : road.type === "major" ? 28 : road.type === "street" ? 15 : 7;
+    return road.type === "avenue" ? 34 : road.type === "major" ? 22 : road.type === "street" ? 11 : 5;
   }
 
   function makeBlobPolygon(cx, cy, rx, ry, count, rng, rotation = 0, variance = 0.14) {
@@ -5071,7 +5670,7 @@
     cityCanvas.setPointerCapture(event.pointerId);
     const world = screenToCity(getCanvasPoint(cityCanvas, event));
     if (!cityState.data) return;
-    if (IS_PLAYER_VIEW) {
+    if (IS_PLAYER_VIEW || spacePanActive || event.button === 1) {
       startCityPan(event);
       return;
     }
@@ -5535,8 +6134,23 @@
       .replace(/^-+|-+$/g, "") || "cidade";
   }
 
+  function isTypingTarget(target) {
+    const tag = target?.tagName?.toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable;
+  }
+
   function handleKeyboard(event) {
     if (IS_PLAYER_VIEW) return;
+    if (event.code === "Space" && !isTypingTarget(event.target)) {
+      if (!spacePanActive) {
+        spacePanActive = true;
+        document.body.classList.add("space-pan-active");
+        updateCityManualControls();
+      }
+      event.preventDefault();
+      return;
+    }
+    if (isTypingTarget(event.target)) return;
     const key = event.key.toLowerCase();
     if (activeMode === "map" && event.ctrlKey && key === "z") {
       event.preventDefault();
@@ -5564,6 +6178,13 @@
       event.preventDefault();
       redoCityEdit();
     }
+  }
+
+  function handleKeyboardUp(event) {
+    if (event.code !== "Space") return;
+    spacePanActive = false;
+    document.body.classList.remove("space-pan-active");
+    updateCityManualControls();
   }
 
   function generateStructuredDungeon() {
@@ -5848,7 +6469,8 @@
     if (!place) return { x: 0, y: 0 };
     if (Number.isFinite(place.x) && Number.isFinite(place.y)) return { x: place.x, y: place.y };
     if (Number.isFinite(place.coordX) && Number.isFinite(place.coordY)) return { x: place.coordX, y: place.coordY };
-    return { x: place.rx * mapImage.width, y: place.ry * mapImage.height };
+    const bounds = mapDrawingBounds();
+    return { x: bounds.x + place.rx * bounds.w, y: bounds.y + place.ry * bounds.h };
   }
 
   function placeCoords(place) {
