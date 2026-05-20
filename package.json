@@ -1,0 +1,14 @@
+{
+  "name": "danubia-mesa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ferramentas de mesa, mapa, cidade e masmorras para Danubia.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "deploy": "vercel --prod"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

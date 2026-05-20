@@ -36,7 +36,8 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const params = new URLSearchParams(location.search);
-  const isPlayerView = params.get("view") === "player";
+  const onlineRole = params.get("role") || "";
+  const isPlayerView = params.get("view") === "player" || onlineRole === "player";
   let playerSlot = parseInt(params.get("slot") || "", 10);
   if (!Number.isInteger(playerSlot) || playerSlot < 1 || playerSlot > 5) playerSlot = null;
 
@@ -117,6 +118,7 @@
       diceExpression: $("#mesaDiceExpression"),
       rollDice: $("#mesaRollDiceBtn"),
       shieldToggle: $("#mesaShieldToggle"),
+      shieldSearch: $("#mesaShieldSearch"),
       shieldBody: $("#mesaShieldBody"),
       gridReadout: $("#mesaGridReadout"),
       zoomReadout: $("#mesaZoomReadout"),
@@ -190,6 +192,7 @@
       ui.shieldBody.classList.toggle("is-collapsed");
       ui.shieldToggle.textContent = ui.shieldBody.classList.contains("is-collapsed") ? "Abrir escudo" : "Fechar escudo";
     });
+    ui.shieldSearch?.addEventListener("input", filterShield);
     ui.viewport?.addEventListener("wheel", handleGridWheel, { passive: false });
     ui.viewport?.addEventListener("pointerdown", handleGridPointerDown);
     ui.sheetClose?.addEventListener("click", closeSheetModal);
@@ -228,7 +231,7 @@
 
   function setupPlayerView() {
     document.body.classList.add("player-view");
-    if (location.hash !== "#mesa") history.replaceState(null, "", `${location.pathname}${location.search}#mesa`);
+    if (!location.hash) history.replaceState(null, "", `${location.pathname}${location.search}#mesa`);
     const badge = document.createElement("div");
     badge.className = "player-badge";
     badge.innerHTML = `<span id="mesaPlayerBadgeText">Visao do jogador</span> <button type="button" id="mesaPlayerSheetBtn">Ficha</button>`;
@@ -237,6 +240,16 @@
       if (playerSlot) openSheetModal(playerSlot);
     });
     renderPlayerSlotPicker();
+  }
+
+  function filterShield() {
+    if (!ui.shieldBody) return;
+    const query = normalizeText(ui.shieldSearch?.value || "");
+    $$("[data-shield-card]", ui.shieldBody).forEach((card) => {
+      const match = !query || normalizeText(card.textContent).includes(query);
+      card.hidden = !match;
+      if (query && match) card.open = true;
+    });
   }
 
   function hydrateFromStorage(raw = localStorage.getItem(STORAGE_KEY) || "") {
@@ -345,13 +358,21 @@
   }
 
   function persistSoon() {
-    if (isPlayerView) return;
     clearTimeout(persistTimer);
     persistTimer = setTimeout(persistNow, 120);
   }
 
   function persistNow() {
     const payload = readPayload();
+    if (isPlayerView) {
+      const normalized = normalizeSheets(payload.sheets);
+      if (playerSlot) normalized[playerSlot - 1] = sheets[playerSlot - 1];
+      payload.sheets = normalized;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      lastPayloadRaw = localStorage.getItem(STORAGE_KEY) || "";
+      window.dispatchEvent(new CustomEvent("danubia:state-saved", { detail: payload }));
+      return;
+    }
     payload.mesa = exportMesaState();
     payload.sheets = sheets;
     if (monsterCache) payload.monsters_cache = monsterCache;
@@ -361,7 +382,7 @@
     } catch (error) {
       const fallback = { ...payload, mesa: { ...payload.mesa, scene: null } };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback));
-      alert("A cena da Mesa ficou grande demais para salvar no navegador. Ela esta visivel agora, mas pode sumir ao recarregar.");
+      alert("A cena do Grid de batalha ficou grande demais para salvar no navegador. Ela esta visivel agora, mas pode sumir ao recarregar.");
     }
     lastPayloadRaw = localStorage.getItem(STORAGE_KEY) || "";
     const saveStatus = $("#saveStatus");
@@ -781,7 +802,7 @@
     recalcSheet(sheet);
     ui.sheetTitle.textContent = `Slot ${sheet.slot} - ${sheet.char_name || "Personagem"}`;
     $$(".sheet-tabs button").forEach((button) => button.classList.toggle("active", button.dataset.sheetTab === currentSheetTab));
-    const disabled = isPlayerView ? "disabled" : "";
+    const disabled = canEditSheet(sheet.slot) ? "" : "disabled";
     if (currentSheetTab === "appearance") ui.sheetContent.innerHTML = appearanceTab(sheet, disabled);
     else if (currentSheetTab === "spells") ui.sheetContent.innerHTML = spellsTab(sheet, disabled);
     else ui.sheetContent.innerHTML = statsTab(sheet, disabled);
@@ -920,7 +941,7 @@
   }
 
   function bindSheetInputs(sheet) {
-    if (isPlayerView) return;
+    if (!canEditSheet(sheet.slot)) return;
     $$("[data-sheet-field]", ui.sheetContent).forEach((input) => {
       input.addEventListener("input", () => {
         const path = input.dataset.sheetField;
@@ -1317,6 +1338,16 @@
     });
   }
 
+  function canEditSheet(slot) {
+    return !isPlayerView || (playerSlot && slot === playerSlot);
+  }
+
+  function loadPayload(raw) {
+    hydrateFromStorage(raw);
+    syncInputs();
+    render();
+  }
+
   function setMonsterStatus(text) {
     if (ui.monsterStatus) ui.monsterStatus.textContent = text;
   }
@@ -1526,6 +1557,10 @@
     return String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "item";
   }
 
+  function normalizeText(text) {
+    return String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (char) => ({
       "&": "&amp;",
@@ -1582,6 +1617,7 @@
     render,
     getPersistPayload,
     importDungeonMap,
+    loadPayload,
   };
 
   if (document.readyState === "loading") {

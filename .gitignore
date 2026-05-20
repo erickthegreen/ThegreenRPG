@@ -1,0 +1,5 @@
+.danubia-data/
+*.log
+node_modules/
+
+.vercel

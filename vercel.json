@@ -1,0 +1,51 @@
+{
+  "version": 2,
+  "routes": [
+    {
+      "src": "/",
+      "dest": "/login.html",
+      "headers": {
+        "Cache-Control": "no-store"
+      }
+    },
+    {
+      "src": "/index.html",
+      "dest": "/api/compendio"
+    },
+    {
+      "src": "/compendio",
+      "dest": "/api/compendio"
+    },
+    {
+      "src": "/escudo.html",
+      "dest": "/api/escudo"
+    },
+    {
+      "src": "/escudo",
+      "dest": "/api/escudo"
+    },
+    {
+      "src": "/lib/(.*)",
+      "status": 404
+    },
+    {
+      "src": "/server.js",
+      "status": 404
+    },
+    {
+      "src": "/package.json",
+      "status": 404
+    },
+    {
+      "src": "/vercel.json",
+      "status": 404
+    },
+    {
+      "src": "/README(.*)",
+      "status": 404
+    },
+    {
+      "handle": "filesystem"
+    }
+  ]
+}

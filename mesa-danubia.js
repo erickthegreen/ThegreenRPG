@@ -12,39 +12,74 @@
   const DUNGEON_EXPORT_MAX_SIDE = 8192;
   const FANTASY_CITY_TARGET_DENSITY = 20000;
   const FANTASY_CITY_MIN_KM2 = 10;
+  const APP_PARAMS = new URLSearchParams(location.search);
+  const IS_PLAYER_VIEW = APP_PARAMS.get("role") === "player" || APP_PARAMS.get("view") === "player";
 
-  const assets = {
-    mapBase: "https://tibiamaps.github.io/tibia-map-data",
-    markers: "https://raw.githubusercontent.com/tibiamaps/tibia-map-data/main/data/markers.json",
-  };
-
-  const tibiaMap = {
-    originX: 31744,
-    originY: 30976,
-  };
+  const DANUBIA_WORLD_WIDTH = 4096;
+  const DANUBIA_WORLD_HEIGHT = 3072;
+  const DANUBIA_WORLD_SEED = 20260518;
 
   const builtInPlaces = [
-    { id: "thais", name: "Thais", type: "Capital humana", coordX: 32368, coordY: 32198, floor: 7, note: "Centro recomendado da campanha. Este e o ponto do link original do TibiaMaps." },
-    { id: "carlin", name: "Carlin", type: "Cidade", coordX: 32360, coordY: 31782, floor: 7, note: "Cidade ao norte de Thais, boa para intriga politica e rotas frias." },
-    { id: "venore", name: "Venore", type: "Cidade pantanosa", coordX: 32957, coordY: 32076, floor: 7, note: "Pantanos, comercio, familias ricas e rotas perigosas." },
-    { id: "ab-dendriel", name: "Ab'Dendriel", type: "Cidade elfica", coordX: 32656, coordY: 31693, floor: 7, note: "Territorio elfico e floresta antiga." },
-    { id: "kazordoon", name: "Kazordoon", type: "Montanha ana", coordX: 32645, coordY: 31925, floor: 7, note: "Montanhas, minas, forjas e entradas subterraneas." },
-    { id: "edron", name: "Edron", type: "Ilha arcana", coordX: 33217, coordY: 31814, floor: 7, note: "Academias, portais, ruinas e experimentos arcanos." },
-    { id: "darashia", name: "Darashia", type: "Deserto", coordX: 33213, coordY: 32455, floor: 7, note: "Caravanas, desertos e templos esquecidos." },
-    { id: "ankrahmun", name: "Ankrahmun", type: "Necropole", coordX: 33194, coordY: 32854, floor: 7, note: "Mumias, tumbas e politica religiosa." },
-    { id: "port-hope", name: "Port Hope", type: "Selva", coordX: 32595, coordY: 32745, floor: 7, note: "Base perfeita para hex crawl em selva." },
-    { id: "liberty-bay", name: "Liberty Bay", type: "Ilha portuaria", coordX: 32317, coordY: 32826, floor: 7, note: "Piratas, plantacoes e viagens maritimas." },
-    { id: "svargrond", name: "Svargrond", type: "Norte gelado", coordX: 32212, coordY: 31134, floor: 7, note: "Gelo, barbaros, espiritos e sobrevivencia." },
-    { id: "yalahar", name: "Yalahar", type: "Cidade antiga", coordX: 32791, coordY: 31247, floor: 7, note: "Distritos tematicos, ruinas e tecnologia perdida." },
-    { id: "farmine", name: "Farmine", type: "Fronteira oriental", coordX: 33023, coordY: 31536, floor: 7, note: "Posto avancado para expedicoes subterraneas e exoticas." },
-    { id: "gray-beach", name: "Gray Beach", type: "Ilha", coordX: 33447, coordY: 31311, floor: 7, note: "Ilha remota para ganchos de investigacao e monstros marinhos." },
-  ];
+    { id: "thais", name: "Thais", type: "Capital portuaria", rx: 0.455, ry: 0.545, rank: 1, population: 110000, areaKm2: 420, note: "Capital humana e porto real; muralha dupla, guildas, catacumbas e controle de artefatos." },
+    { id: "drakenthal", name: "Drakenthal", type: "Cidade fortaleza", rx: 0.600, ry: 0.340, rank: 2, population: 90000, areaKm2: 380, note: "Anfiteatro vulcanico, basalto negro, tuneis, forjas e fumaca permanente no horizonte." },
+    { id: "ossebra", name: "Ossebra", type: "Cidade elfica fluvial", rx: 0.485, ry: 0.405, rank: 3, population: 80000, areaKm2: 510, note: "Plataformas em arvores milenares; Rio Ebra corta a cidade e os arquivos guardam mapas antigos." },
+    { id: "velmoor", name: "Velmoor", type: "Mercado de estepe", rx: 0.540, ry: 0.565, rank: 4, population: 75000, areaKm2: 350, note: "Cidade horizontal, ruas largas para caravanas e maior mercado aberto de Danubia." },
+    { id: "halveth", name: "Halveth", type: "Cidade da tundra", rx: 0.300, ry: 0.170, rank: 5, population: 68000, areaKm2: 290, note: "Circulos concentricos de pedra no norte frio, torres de granito e expedicoes glaciais." },
+    { id: "solavar", name: "Solavar", type: "Cidade do deserto", rx: 0.300, ry: 0.700, rank: 6, population: 64000, areaKm2: 300, note: "Muralha circular de arenito, aqueduto subterraneo e controle politico da agua." },
+    { id: "porto-cinzento", name: "Porto Cinzento", type: "Porto nebuloso", rx: 0.240, ry: 0.465, rank: 7, population: 60000, areaKm2: 260, note: "Costa ocidental com nevoa permanente, ruelas medievais e cartografos de moral duvidosa." },
+    { id: "ironvale", name: "Ironvale", type: "Vale industrial", rx: 0.365, ry: 0.420, rank: 8, population: 58000, areaKm2: 270, note: "Vale fechado entre serras, fundicoes ativas, rio industrial e muralha reforcada com metal." },
+    { id: "mireth", name: "Mireth", type: "Cidade lacustre", rx: 0.440, ry: 0.655, rank: 9, population: 55000, areaKm2: 340, note: "Palafitas sobre lago pantanoso, ilhas artificiais, pontes de madeira e alquimia forte." },
+    { id: "caern-do-sul", name: "Caern do Sul", type: "Porto tropical", rx: 0.385, ry: 0.860, rank: 10, population: 53000, areaKm2: 310, note: "Porto quente de muralha branca, frota militar e acesso a ruinas tropicais." },
+    { id: "tundram", name: "Tundram", type: "Cidade subterranea", rx: 0.455, ry: 0.245, rank: 11, population: 50000, areaKm2: 260, note: "Segunda cidade ana, 70% subterranea, galerias minerais e portas de granito." },
+    { id: "faelcross", name: "Faelcross", type: "Cruzamento florestal", rx: 0.382, ry: 0.555, rank: 12, population: 48000, areaKm2: 290, note: "Cidade semi-aberta rente as arvores, quatro rotas florestais e rangers de elite." },
+    { id: "selvorn", name: "Selvorn", type: "Clareira de selva", rx: 0.470, ry: 0.835, rank: 13, population: 46000, areaKm2: 420, note: "Clareira tropical mantida a forca, muralha de troncos reforcada e selva agressiva." },
+    { id: "narath", name: "Narath", type: "Costa rochosa", rx: 0.765, ry: 0.520, rank: 14, population: 44000, areaKm2: 230, note: "Cidade em degraus nos penhascos, porto pequeno e mergulho de recuperacao." },
+    { id: "duskholm", name: "Duskholm", type: "Fronteira brumosa", rx: 0.675, ry: 0.590, rank: 15, population: 42000, areaKm2: 280, note: "Planicie de fronteira, muralha dupla, zona neutra e portal de ruina documentado." },
+    { id: "variel", name: "Variel", type: "Floresta sagrada", rx: 0.585, ry: 0.475, rank: 16, population: 38000, areaKm2: 350, note: "Cidade elfica oculta por ilusoes permanentes, arquitetura organica e rituais antigos." },
+    { id: "cravenspire", name: "Cravenspire", type: "Pico sombrio", rx: 0.720, ry: 0.350, rank: 17, population: 36000, areaKm2: 240, note: "Base de pico inacessivel, sombra permanente, ruas estreitas e magia proibida." },
+    { id: "eldenmoor", name: "Eldenmoor", type: "Pantano academico", rx: 0.610, ry: 0.690, rank: 18, population: 34000, areaKm2: 310, note: "Ilhas de pedra cinza, ossadas antigas, bruma e estudos arcanos de civilizacoes extintas." },
+    { id: "bhalrock", name: "Bhalrock", type: "Forja vulcanica", rx: 0.655, ry: 0.285, rank: 19, population: 32000, areaKm2: 190, note: "Sope de vulcao ativo, galerias quentes, metal lendario e evacuacoes frequentes." },
+    { id: "serathis", name: "Serathis", type: "Porto artico", rx: 0.825, ry: 0.185, rank: 20, population: 29000, areaKm2: 200, note: "Porto de gelo semipermanente e arquivos sobre civilizacoes glaciais." },
+
+    { id: "pedra-funda", name: "Pedra Funda", type: "Vilarejo mineiro", rx: 0.392, ry: 0.365, village: true, population: 3500, note: "Entrada de mina profunda e parada antes das ruinas das montanhas." },
+    { id: "riacho-das-cinzas", name: "Riacho das Cinzas", type: "Vilarejo ribeirinho", rx: 0.630, ry: 0.318, village: true, population: 3200, note: "Rio acinzentado por minerais, pesca e coleta de minerios leves." },
+    { id: "aldeia-do-sal", name: "Aldeia do Sal", type: "Vilarejo costeiro", rx: 0.420, ry: 0.585, village: true, population: 3000, note: "Salinas artesanais e abastecimento costeiro." },
+    { id: "colina-dos-corvos", name: "Colina dos Corvos", type: "Vilarejo de mensageiros", rx: 0.345, ry: 0.505, village: true, population: 2800, note: "Corvos domesticados usados como mensageiros entre guildas." },
+    { id: "margem-seca", name: "Margem Seca", type: "Vilarejo arido", rx: 0.270, ry: 0.655, village: true, population: 2600, note: "Leito de rio seco e comercio de agua tratada." },
+    { id: "encosta-verde", name: "Encosta Verde", type: "Vilarejo herbalista", rx: 0.520, ry: 0.465, village: true, population: 2500, note: "Herboristas, curandeiros e pocoes basicas para aventureiros." },
+    { id: "vau-da-nevoa", name: "Vau da Nevoa", type: "Vilarejo pantanoso", rx: 0.590, ry: 0.655, village: true, population: 2400, note: "Halflings escondidos por nevoa permanente e rotas discretas." },
+    { id: "lastro", name: "Lastro", type: "Vilarejo de caravanas", rx: 0.505, ry: 0.600, village: true, population: 2300, note: "Armazens e estabulos para jornadas longas." },
+    { id: "palha-e-po", name: "Palha e Po", type: "Vilarejo agricola", rx: 0.338, ry: 0.742, village: true, population: 2100, note: "Agricultura resistente em solo pobre." },
+    { id: "torrao-velho", name: "Torrao Velho", type: "Vilarejo defensivo", rx: 0.425, ry: 0.372, village: true, population: 2000, note: "Pedregulhos antigos e defesa pequena mas seria." },
+    { id: "capim-branco", name: "Capim Branco", type: "Vilarejo de pastagem", rx: 0.575, ry: 0.610, village: true, population: 1900, note: "Cavalos resistentes vendidos a aventureiros." },
+    { id: "muro-torto", name: "Muro Torto", type: "Vilarejo de fronteira", rx: 0.710, ry: 0.620, village: true, population: 1800, note: "Muro irregular e disputas entre reinos limitrofes." },
+    { id: "fosso-raso", name: "Fosso Raso", type: "Vilarejo armadilheiro", rx: 0.570, ry: 0.710, village: true, population: 1700, note: "Fosso natural, tradicao de armadilheiros e cacadores." },
+    { id: "cruzeiro-do-norte", name: "Cruzeiro do Norte", type: "Entroncamento", rx: 0.350, ry: 0.300, village: true, population: 1600, note: "Centro logistico para grupos que vao ao norte." },
+    { id: "tres-lagos", name: "Aldeia Tres Lagos", type: "Vilarejo lacustre", rx: 0.468, ry: 0.702, village: true, population: 1500, note: "Tres lagos, pesca, barcos e tradicao oral rica." },
+    { id: "barreira-fria", name: "Barreira Fria", type: "Passagem nevada", rx: 0.330, ry: 0.220, village: true, population: 1400, note: "Rota para o norte e pedagio em nevascas." },
+    { id: "lombo-do-anao", name: "Lombo do Anao", type: "Forja familiar", rx: 0.480, ry: 0.282, village: true, population: 1200, note: "Vilarejo anao de gemas e pequena forja familiar." },
+    { id: "refugio-do-tronco", name: "Refugio do Tronco", type: "Refugio florestal", rx: 0.548, ry: 0.428, village: true, population: 1100, note: "Arvores gigantes e descanso para cacadores." },
+    { id: "po-e-ouro", name: "Po e Ouro", type: "Vilarejo de ruinas", rx: 0.326, ry: 0.780, village: true, population: 1100, note: "Alta rotatividade de aventureiros perto de ruinas deserticas." },
+    { id: "aldeia-sem-nome", name: "Aldeia sem Nome", type: "Vilarejo isolado", rx: 0.706, ry: 0.665, village: true, population: 950, note: "Habitantes desconfiados e segredos antigos." },
+    { id: "carvalho-negro", name: "Carvalho Negro", type: "Vilarejo sagrado", rx: 0.560, ry: 0.500, village: true, population: 900, note: "Carvalho milenar de tronco negro, protegido como sagrado." },
+    { id: "remanso", name: "Remanso", type: "Vilarejo ribeirinho", rx: 0.430, ry: 0.615, village: true, population: 850, note: "Beira de rio calmo, afastado de conflitos e ruinas." },
+    { id: "viela-da-serra", name: "Viela da Serra", type: "Passagem rochosa", rx: 0.665, ry: 0.385, village: true, population: 800, note: "Apoio para escaladores e mineradores." },
+    { id: "passagem-dos-elfos", name: "Passagem dos Elfos", type: "Portao elfico", rx: 0.610, ry: 0.505, village: true, population: 750, note: "Acesso a territorios elficos profundos controlado por sentinelas." },
+    { id: "cascalho", name: "Cascalho", type: "Garimpo ribeirinho", rx: 0.452, ry: 0.455, village: true, population: 700, note: "Garimpo de pedras preciosas no leito do rio." },
+    { id: "poco-fundo", name: "Poco Fundo", type: "Vilarejo de poco", rx: 0.285, ry: 0.735, village: true, population: 650, note: "Poco artesiano profundo e essencial em regiao seca." },
+    { id: "fim-da-estrada", name: "Fim da Estrada", type: "Fronteira selvagem", rx: 0.735, ry: 0.680, village: true, population: 600, note: "Ultimo vilarejo antes das terras selvagens." },
+    { id: "beira-do-abismo", name: "Beira do Abismo", type: "Vilarejo no precipicio", rx: 0.692, ry: 0.405, village: true, population: 550, note: "Borda de abismo de 300 m e rota para ruinas abaixo." },
+    { id: "clareira-dos-tres", name: "Clareira dos Tres", type: "Vilarejo tri-racial", rx: 0.505, ry: 0.495, village: true, population: 500, note: "Humanos, elfos e halflings em coexistencia estavel." },
+    { id: "ultimo-marco", name: "Ultimo Marco", type: "Marco de fronteira", rx: 0.755, ry: 0.715, village: true, population: 400, note: "Marco de pedra milenar antes de territorios nao mapeados." },
+  ].map((place) => ({ floor: 7, source: "compendio", ...place }));
 
   const routeSets = [
-    ["thais", "carlin", "ab-dendriel", "kazordoon", "venore", "thais"],
-    ["thais", "port-hope", "ankrahmun", "darashia", "venore"],
-    ["svargrond", "carlin", "thais", "liberty-bay", "port-hope"],
-    ["yalahar", "farmine", "edron", "gray-beach"],
+    ["porto-cinzento", "ironvale", "faelcross", "thais", "velmoor", "duskholm", "narath"],
+    ["halveth", "tundram", "drakenthal", "bhalrock", "cravenspire", "serathis"],
+    ["thais", "mireth", "solavar", "po-e-ouro", "poco-fundo"],
+    ["ossebra", "variel", "selvorn", "caern-do-sul"],
+    ["pedra-funda", "drakenthal", "riacho-das-cinzas", "bhalrock"],
+    ["aldeia-do-sal", "thais", "lastro", "velmoor", "capim-branco"],
   ];
 
   const tileDefs = [
@@ -66,10 +101,10 @@
   const tileById = Object.fromEntries(tileDefs.map((tile) => [tile.id, tile]));
 
   const importProfileDefs = [
-    { id: "tibia-auto", label: "Tibia automatico" },
-    { id: "tibia-dungeon", label: "Tibia dungeon" },
-    { id: "tibia-world", label: "Tibia mundo" },
-    { id: "tibia-city", label: "Tibia cidade" },
+    { id: "danubia-auto", label: "Automatico Danubia" },
+    { id: "danubia-dungeon", label: "Masmorra por cores" },
+    { id: "danubia-world", label: "Mapa mundi por cores" },
+    { id: "danubia-city", label: "Cidade por cores" },
     { id: "generic", label: "Imagem generica" },
   ];
   const THAIS_ILLUSTRATED_SRC = "thais.jpg";
@@ -108,7 +143,7 @@
   ];
 
   const importProfileDefaults = {
-    "tibia-auto": {
+    "danubia-auto": {
       void: "empty",
       water: "water",
       orange: "wall",
@@ -121,7 +156,7 @@
       sand: "floor",
       stone: "wall",
     },
-    "tibia-dungeon": {
+    "danubia-dungeon": {
       void: "empty",
       water: "water",
       orange: "lava",
@@ -134,7 +169,7 @@
       sand: "floor",
       stone: "wall",
     },
-    "tibia-world": {
+    "danubia-world": {
       void: "empty",
       water: "water",
       orange: "lava",
@@ -147,7 +182,7 @@
       sand: "floor",
       stone: "wall",
     },
-    "tibia-city": {
+    "danubia-city": {
       void: "empty",
       water: "water",
       orange: "wall",
@@ -213,7 +248,7 @@
     fantasyMap: normalizeFantasyMap(persisted.map?.fantasyMap),
     settings: {
       gridPx: persisted.map?.settings?.gridPx || 64,
-      metersPerTile: persisted.map?.settings?.metersPerTile || 1.5,
+      metersPerTile: persisted.map?.settings?.metersPerTile || 250,
       partySpeed: persisted.map?.settings?.partySpeed || 38,
       cityPopulation: persisted.map?.settings?.cityPopulation || 273110,
       cityDensity: persisted.map?.settings?.cityDensity || 199.49,
@@ -230,7 +265,7 @@
       showGrid: persisted.map?.settings?.showGrid ?? true,
       showRoutes: persisted.map?.settings?.showRoutes ?? true,
       showMarkers: persisted.map?.settings?.showMarkers ?? true,
-      showTibiaMarkers: persisted.map?.settings?.showTibiaMarkers ?? true,
+      showTibiaMarkers: persisted.map?.settings?.showTibiaMarkers ?? false,
       showLabels: persisted.map?.settings?.showLabels ?? true,
       showScale: persisted.map?.settings?.showScale ?? true,
     },
@@ -308,7 +343,7 @@
     syncCityInputs();
     renderMarkerList();
     renderLabelList();
-    if (!cityState.data || cityState.data.mapVersion !== 3) generateCity();
+    if (!cityState.data || cityState.data.mapVersion !== 4) generateCity();
     else {
       ensureCityManual(cityState.data);
       if (cityState.settings.referenceMode === "thais") applyThaisIllustratedDimensions();
@@ -318,11 +353,8 @@
     mapImage.onload = () => {
       mapState.ready = true;
       mapEditCacheDirty = true;
-      if (mapState.floor === 7) {
-        selectMarker("thais", true);
-      } else {
-        fitMap();
-      }
+      ensureDanubiaWorldMap();
+      fitMap();
       renderMap();
       updateMapCropReadout();
     };
@@ -332,7 +364,6 @@
     };
     mapImage.crossOrigin = "anonymous";
     mapImage.src = mapUrlForFloor(mapState.floor);
-    loadTibiaMarkers();
 
     resizeAll();
     window.addEventListener("resize", resizeAll);
@@ -482,7 +513,6 @@
       ["#showMapGrid", "showGrid"],
       ["#showMapRoutes", "showRoutes"],
       ["#showMapMarkers", "showMarkers"],
-      ["#showTibiaMarkers", "showTibiaMarkers"],
       ["#showMapLabels", "showLabels"],
       ["#showMapScale", "showScale"],
     ].forEach(([selector, key]) => {
@@ -539,6 +569,7 @@
     $("#downloadDungeonBtn").addEventListener("click", () => downloadDungeonPng(true));
     $("#downloadPlayerDungeonBtn").addEventListener("click", () => downloadDungeonPng(false));
     $("#sendDungeonMesaBtn").addEventListener("click", sendDungeonToMesa);
+    $("#generateRandomDungeonBtn").addEventListener("click", generateStructuredDungeon);
 
     $$("[data-dungeon-mode]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -838,7 +869,6 @@
     $("#showMapGrid").checked = mapState.settings.showGrid;
     $("#showMapRoutes").checked = mapState.settings.showRoutes;
     $("#showMapMarkers").checked = mapState.settings.showMarkers;
-    $("#showTibiaMarkers").checked = mapState.settings.showTibiaMarkers;
     $("#showMapLabels").checked = mapState.settings.showLabels;
     $("#showMapScale").checked = mapState.settings.showScale;
     updateMapCropReadout();
@@ -980,6 +1010,7 @@
   }
 
   function drawCityFootprintScreen(ctx) {
+    if (mapState.fantasyMap?.fullWorld && mapState.view.scale < 0.28) return;
     const bounds = cityFootprintBounds();
     if (!bounds) return;
     const topLeft = mapImageToScreen({ x: bounds.x, y: bounds.y });
@@ -1103,33 +1134,50 @@
   }
 
   function generateFantasyWorldMap() {
+    if (IS_PLAYER_VIEW) return;
     if (!mapState.ready) return;
-    const bounds = cityFootprintBounds();
-    if (!bounds) return;
-    const population = Math.max(1, Number(mapState.settings.cityPopulation) || 200000);
-    const urbanKm2 = clamp(Math.max(FANTASY_CITY_MIN_KM2, population / FANTASY_CITY_TARGET_DENSITY), 10, bounds.areaKm2 * 0.72);
-    mapState.fantasyMap = {
-      version: 2,
-      floor: mapState.floor,
-      seed: Math.floor(Date.now() % 2147483647),
-      resolution: clamp(Math.round(bounds.w / 2.2), 1200, 1600),
-      bounds: {
-        x: Math.round(bounds.x * 10) / 10,
-        y: Math.round(bounds.y * 10) / 10,
-        w: Math.round(bounds.w * 10) / 10,
-        h: Math.round(bounds.h * 10) / 10,
-      },
-      areaKm2: Math.round(bounds.areaKm2 * 10) / 10,
-      urbanKm2: Math.round(urbanKm2 * 10) / 10,
-      population: Math.round(population),
-    };
+    if (mapState.settings.metersPerTile < 50) mapState.settings.metersPerTile = 250;
+    mapState.fantasyMap = createDanubiaWorldMap(Math.floor(Date.now() % 2147483647));
+    syncMapInputs();
     fantasyMapCacheKey = "";
     fitMapToBounds(mapState.fantasyMap.bounds);
     persistSoon();
     renderMap();
   }
 
+  function ensureDanubiaWorldMap() {
+    if (mapState.fantasyMap?.fullWorld && mapState.fantasyMap.version >= 4 && mapState.fantasyMap.floor === 7) {
+      if (mapState.settings.metersPerTile < 50) {
+        mapState.settings.metersPerTile = 250;
+        syncMapInputs();
+      }
+      return;
+    }
+    if (mapState.settings.metersPerTile < 50) mapState.settings.metersPerTile = 250;
+    mapState.fantasyMap = createDanubiaWorldMap(DANUBIA_WORLD_SEED);
+    syncMapInputs();
+    fantasyMapCacheKey = "";
+    persistSoon();
+  }
+
+  function createDanubiaWorldMap(seed) {
+    return {
+      version: 4,
+      fullWorld: true,
+      floor: 7,
+      seed: Math.abs(Math.floor(seed || DANUBIA_WORLD_SEED)),
+      resolution: 1536,
+      resolutionW: 1536,
+      resolutionH: 1152,
+      bounds: { x: 0, y: 0, w: mapImage.width || DANUBIA_WORLD_WIDTH, h: mapImage.height || DANUBIA_WORLD_HEIGHT },
+      areaKm2: Math.round(((mapImage.width || DANUBIA_WORLD_WIDTH) * mapState.settings.metersPerTile / 1000) * ((mapImage.height || DANUBIA_WORLD_HEIGHT) * mapState.settings.metersPerTile / 1000)),
+      population: builtInPlaces.reduce((sum, place) => sum + (place.population || 0), 0),
+      continents: 8,
+    };
+  }
+
   function clearFantasyWorldMap() {
+    if (IS_PLAYER_VIEW) return;
     mapState.fantasyMap = null;
     fantasyMapCanvas.width = 0;
     fantasyMapCanvas.height = 0;
@@ -1141,13 +1189,17 @@
   function rebuildFantasyMapCanvasIfNeeded() {
     const map = mapState.fantasyMap;
     if (!map) return;
-    const key = `${map.version}:${map.floor}:${map.seed}:${map.resolution}:${map.bounds.x}:${map.bounds.y}:${map.bounds.w}:${map.bounds.h}:${map.urbanKm2 || 0}:${map.population || 0}`;
-    if (fantasyMapCacheKey === key && fantasyMapCanvas.width === map.resolution) return;
+    const key = `${map.version}:${map.fullWorld ? 1 : 0}:${map.floor}:${map.seed}:${map.resolution}:${map.resolutionW || 0}:${map.resolutionH || 0}:${map.bounds.x}:${map.bounds.y}:${map.bounds.w}:${map.bounds.h}:${map.urbanKm2 || 0}:${map.population || 0}`;
+    if (fantasyMapCacheKey === key && fantasyMapCanvas.width === (map.resolutionW || map.resolution)) return;
     renderFantasyMapRaster(map);
     fantasyMapCacheKey = key;
   }
 
   function renderFantasyMapRaster(map) {
+    if (map.fullWorld) {
+      renderDanubiaWorldRaster(map);
+      return;
+    }
     const size = clamp(Math.round(map.resolution || 1200), 512, 1600);
     fantasyMapCanvas.width = size;
     fantasyMapCanvas.height = size;
@@ -1171,6 +1223,317 @@
     drawFantasyRoads(fantasyMapCtx, size, cities);
     cities.forEach((city) => drawFantasyCity(fantasyMapCtx, size, city, map.seed));
     drawFantasyOutposts(fantasyMapCtx, size, map.seed);
+  }
+
+  function renderDanubiaWorldRaster(map) {
+    const width = clamp(Math.round(map.resolutionW || 1536), 768, 2048);
+    const height = clamp(Math.round(map.resolutionH || 1152), 576, 1536);
+    fantasyMapCanvas.width = width;
+    fantasyMapCanvas.height = height;
+    fantasyMapCtx.imageSmoothingEnabled = false;
+    const image = fantasyMapCtx.createImageData(width, height);
+    const data = image.data;
+    const continents = danubiaContinents();
+
+    for (let y = 0; y < height; y += 1) {
+      const ny = y / height;
+      for (let x = 0; x < width; x += 1) {
+        const nx = x / width;
+        const terrain = danubiaTerrainAt(nx, ny, map.seed, continents);
+        const offset = (y * width + x) * 4;
+        data[offset] = terrain[0];
+        data[offset + 1] = terrain[1];
+        data[offset + 2] = terrain[2];
+        data[offset + 3] = 255;
+      }
+    }
+
+    fantasyMapCtx.putImageData(image, 0, 0);
+    drawDanubiaSeaDetail(fantasyMapCtx, width, height, map.seed);
+    drawDanubiaRivers(fantasyMapCtx, width, height);
+    drawDanubiaFields(fantasyMapCtx, width, height, map.seed);
+    drawDanubiaRoads(fantasyMapCtx, width, height);
+    drawDanubiaSettlements(fantasyMapCtx, width, height, map.seed);
+    drawDanubiaMapFrame(fantasyMapCtx, width, height);
+  }
+
+  function danubiaContinents() {
+    return [
+      { id: "coroa-norte", cx: 0.30, cy: 0.18, rx: 0.18, ry: 0.13, biome: "snow" },
+      { id: "cinzas", cx: 0.62, cy: 0.28, rx: 0.17, ry: 0.14, biome: "volcano" },
+      { id: "danubia-central", cx: 0.45, cy: 0.53, rx: 0.25, ry: 0.23, biome: "green" },
+      { id: "sul-tropical", cx: 0.42, cy: 0.82, rx: 0.20, ry: 0.15, biome: "jungle" },
+      { id: "solavar", cx: 0.29, cy: 0.70, rx: 0.16, ry: 0.13, biome: "desert" },
+      { id: "brejos-leste", cx: 0.64, cy: 0.67, rx: 0.17, ry: 0.15, biome: "swamp" },
+      { id: "costa-rochosa", cx: 0.79, cy: 0.50, rx: 0.14, ry: 0.18, biome: "rock" },
+      { id: "arquipelago-artico", cx: 0.82, cy: 0.18, rx: 0.12, ry: 0.10, biome: "ice" },
+    ];
+  }
+
+  function danubiaTerrainAt(nx, ny, seed, continents) {
+    let best = null;
+    let bestScore = -99;
+    for (const continent of continents) {
+      const warpX = fbm(nx * 7.3 + 10, ny * 7.3 - 4, seed + continent.cx * 10000, 3) - 0.5;
+      const warpY = fbm(nx * 6.2 - 5, ny * 6.2 + 9, seed + continent.cy * 10000, 3) - 0.5;
+      const dx = (nx - continent.cx + warpX * 0.055) / continent.rx;
+      const dy = (ny - continent.cy + warpY * 0.055) / continent.ry;
+      const edge = Math.sqrt(dx * dx + dy * dy);
+      const score = 1 - edge + fbm(nx * 18.0, ny * 18.0, seed + 91, 2) * 0.17;
+      if (score > bestScore) {
+        bestScore = score;
+        best = continent;
+      }
+    }
+
+    const wave = fbm(nx * 30, ny * 30, seed + 123, 2);
+    if (bestScore < -0.03) return wave > 0.62 ? [65, 112, 143] : [58, 103, 135];
+    if (bestScore < 0.045) return [232, 191, 127];
+
+    const detail = fbm(nx * 36, ny * 36, seed + 303, 3);
+    const rough = fbm(nx * 11, ny * 11, seed + 707, 4);
+    if (best.biome === "snow" || best.biome === "ice") {
+      if (rough > 0.68) return [125, 130, 124];
+      if (detail > 0.52) return [222, 228, 220];
+      return [194, 205, 198];
+    }
+    if (best.biome === "volcano") {
+      if (rough > 0.73) return [92, 88, 80];
+      if (detail > 0.82) return [210, 82, 36];
+      if (rough > 0.54) return [126, 119, 101];
+      return [112, 100, 74];
+    }
+    if (best.biome === "desert") {
+      if (rough > 0.70) return [140, 120, 85];
+      if (detail < 0.24) return [242, 199, 135];
+      return [205, 162, 89];
+    }
+    if (best.biome === "swamp") {
+      if (detail > 0.68) return [58, 97, 70];
+      if (rough < 0.28) return [83, 116, 82];
+      return [112, 101, 62];
+    }
+    if (best.biome === "rock") {
+      if (rough > 0.58) return [111, 114, 106];
+      if (detail > 0.66) return [62, 90, 62];
+      return [140, 131, 100];
+    }
+    if (best.biome === "jungle") {
+      if (detail > 0.56) return [0, 88, 24];
+      if (rough > 0.62) return [28, 112, 43];
+      return [20, 168, 38];
+    }
+    if (detail > 0.70) return [0, 98, 22];
+    if (rough > 0.64) return [109, 114, 92];
+    if (detail < 0.20) return [57, 172, 51];
+    return [24, 198, 29];
+  }
+
+  function drawDanubiaSeaDetail(ctx, width, height, seed) {
+    const rng = mulberry32(seed + 6001);
+    ctx.save();
+    ctx.strokeStyle = "rgba(158, 202, 211, 0.22)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 220; i += 1) {
+      const x = rng() * width;
+      const y = rng() * height;
+      const len = 10 + rng() * 30;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.bezierCurveTo(x + len * 0.25, y - 3, x + len * 0.62, y + 3, x + len, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawDanubiaRivers(ctx, width, height) {
+    const rivers = [
+      [[0.42, 0.22], [0.46, 0.36], [0.43, 0.49], [0.36, 0.60]],
+      [[0.60, 0.33], [0.54, 0.42], [0.50, 0.53], [0.45, 0.63]],
+      [[0.66, 0.55], [0.62, 0.62], [0.60, 0.72], [0.66, 0.80]],
+      [[0.34, 0.78], [0.39, 0.76], [0.44, 0.83], [0.39, 0.93]],
+    ];
+    ctx.save();
+    ctx.lineCap = "round";
+    rivers.forEach((river) => {
+      ctx.strokeStyle = "#315f82";
+      ctx.lineWidth = Math.max(5, width * 0.004);
+      drawBezierPath(ctx, river, width, height);
+      ctx.stroke();
+      ctx.strokeStyle = "#75aabd";
+      ctx.lineWidth = Math.max(1, width * 0.0012);
+      drawBezierPath(ctx, river, width, height);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  function drawBezierPath(ctx, points, width, height) {
+    if (points.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0] * width, points[0][1] * height);
+    for (let i = 1; i < points.length - 1; i += 1) {
+      const midX = (points[i][0] + points[i + 1][0]) * 0.5 * width;
+      const midY = (points[i][1] + points[i + 1][1]) * 0.5 * height;
+      ctx.quadraticCurveTo(points[i][0] * width, points[i][1] * height, midX, midY);
+    }
+    const last = points[points.length - 1];
+    ctx.lineTo(last[0] * width, last[1] * height);
+  }
+
+  function drawDanubiaFields(ctx, width, height, seed) {
+    const rng = mulberry32(seed + 4127);
+    const anchors = builtInPlaces.filter((place) => !place.village && place.rank <= 13);
+    ctx.save();
+    anchors.forEach((place) => {
+      const p = worldCanvasPoint(place, width, height);
+      for (let i = 0; i < 7; i += 1) {
+        const angle = rng() * Math.PI * 2;
+        const dist = 20 + rng() * 45;
+        const x = p.x + Math.cos(angle) * dist;
+        const y = p.y + Math.sin(angle) * dist;
+        const w = 16 + rng() * 32;
+        const h = 8 + rng() * 20;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate((rng() - 0.5) * 0.7);
+        ctx.fillStyle = rng() > 0.45 ? "#9a8c55" : "#768b4c";
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+        ctx.strokeStyle = "rgba(42, 33, 18, 0.45)";
+        ctx.strokeRect(-w / 2, -h / 2, w, h);
+        ctx.strokeStyle = "rgba(235, 221, 160, 0.34)";
+        for (let stripe = -h / 2 + 3; stripe < h / 2; stripe += 5) {
+          ctx.beginPath();
+          ctx.moveTo(-w / 2 + 2, stripe);
+          ctx.lineTo(w / 2 - 2, stripe);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    });
+    ctx.restore();
+  }
+
+  function drawDanubiaRoads(ctx, width, height) {
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    routeSets.forEach((route) => {
+      const points = route.map((id) => findPlace(id)).filter(Boolean).map((place) => worldCanvasPoint(place, width, height));
+      if (points.length < 2) return;
+      ctx.strokeStyle = "rgba(73, 51, 28, 0.80)";
+      ctx.lineWidth = Math.max(3, width * 0.0026);
+      drawPolyline(ctx, points);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(213, 181, 98, 0.88)";
+      ctx.lineWidth = Math.max(1, width * 0.0011);
+      drawPolyline(ctx, points);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  function drawDanubiaSettlements(ctx, width, height, seed) {
+    ctx.save();
+    builtInPlaces.forEach((place, index) => {
+      const rng = mulberry32(seed + index * 1091 + (place.village ? 71 : 17));
+      const p = worldCanvasPoint(place, width, height);
+      if (place.village) drawDanubiaVillageIcon(ctx, p.x, p.y, rng);
+      else drawDanubiaCityIcon(ctx, p.x, p.y, place, rng);
+    });
+    ctx.restore();
+  }
+
+  function drawDanubiaCityIcon(ctx, x, y, place, rng) {
+    const base = clamp(Math.sqrt(place.areaKm2 || 220) * 0.75, 12, 34);
+    const rx = base * (place.id === "thais" ? 1.55 : 1.0);
+    const ry = base * (place.id === "thais" ? 1.25 : 0.86);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "rgba(95, 91, 72, 0.95)";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (place.rank <= 8) {
+      ctx.strokeStyle = place.id === "drakenthal" || place.id === "bhalrock" ? "#3b3730" : "#d74724";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx * 1.04, ry * 1.04, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "#c6a867";
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 5; i += 1) {
+      const angle = (i / 5) * Math.PI * 2 + rng() * 0.18;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(angle) * rx * 0.95, Math.sin(angle) * ry * 0.95);
+      ctx.stroke();
+    }
+    const count = place.id === "thais" ? 180 : clamp(125 - (place.rank || 20) * 4, 42, 120);
+    for (let i = 0; i < count; i += 1) {
+      const a = rng() * Math.PI * 2;
+      const d = Math.sqrt(rng()) * 0.88;
+      const bx = Math.cos(a) * rx * d;
+      const by = Math.sin(a) * ry * d;
+      if (Math.abs(Math.sin(a * 5) * d) < 0.055) continue;
+      const bw = 2 + rng() * (place.id === "thais" ? 5 : 4);
+      const bh = 2 + rng() * 4;
+      ctx.fillStyle = rng() > 0.33 ? "#cf6d38" : "#b8452b";
+      ctx.fillRect(Math.round(bx), Math.round(by), Math.round(bw), Math.round(bh));
+      ctx.strokeStyle = "rgba(41, 29, 20, 0.55)";
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(Math.round(bx), Math.round(by), Math.round(bw), Math.round(bh));
+    }
+    if (place.rank <= 3) {
+      ctx.fillStyle = "#8d8876";
+      ctx.fillRect(-6, -ry * 0.46, 12, 10);
+      ctx.strokeStyle = "#2a2119";
+      ctx.strokeRect(-6, -ry * 0.46, 12, 10);
+    }
+    ctx.restore();
+  }
+
+  function drawDanubiaVillageIcon(ctx, x, y, rng) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "rgba(112, 98, 67, 0.70)";
+    ctx.fillRect(-7, -5, 14, 10);
+    const count = 5 + Math.floor(rng() * 6);
+    for (let i = 0; i < count; i += 1) {
+      const bx = -9 + rng() * 18;
+      const by = -7 + rng() * 14;
+      ctx.fillStyle = rng() > 0.45 ? "#c89555" : "#94603b";
+      ctx.fillRect(Math.round(bx), Math.round(by), 3 + Math.floor(rng() * 3), 2 + Math.floor(rng() * 3));
+    }
+    ctx.strokeStyle = "#2f2419";
+    ctx.strokeRect(-7, -5, 14, 10);
+    ctx.restore();
+  }
+
+  function drawDanubiaMapFrame(ctx, width, height) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(26, 20, 13, 0.78)";
+    ctx.lineWidth = 10;
+    ctx.strokeRect(5, 5, width - 10, height - 10);
+    ctx.strokeStyle = "rgba(238, 214, 148, 0.84)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([14, 9]);
+    ctx.strokeRect(18, 18, width - 36, height - 36);
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(20, 17, 12, 0.82)";
+    ctx.fillRect(30, 30, 210, 42);
+    ctx.fillStyle = "#f0d48b";
+    ctx.font = "700 24px Georgia";
+    ctx.fillText("DANUBIA", 44, 58);
+    ctx.restore();
+  }
+
+  function worldCanvasPoint(place, width, height) {
+    return {
+      x: clamp((place.rx || 0.5) * width, 0, width),
+      y: clamp((place.ry || 0.5) * height, 0, height),
+    };
   }
 
   function fantasyTerrainAt(nx, ny, seed) {
@@ -1702,7 +2065,8 @@
       const isSelected = place.id === mapState.selectedId;
       const isCustom = place.custom === true;
       const isTibia = place.source === "tibiamaps";
-      const radius = isTibia ? (isSelected ? 6 : 4) : (isSelected ? 9 : 7);
+      const isVillage = place.village === true;
+      const radius = isTibia ? (isSelected ? 6 : 4) : isVillage ? (isSelected ? 7 : 4.5) : (isSelected ? 9 : 7);
       ctx.save();
       ctx.translate(point.x, point.y);
       ctx.fillStyle = isTibia ? "#d2ad55" : isCustom ? "#4e7388" : "#9f332c";
@@ -1718,10 +2082,20 @@
       ctx.fill();
       ctx.restore();
 
-      if (mapState.settings.showLabels && (!isTibia || isSelected || mapState.view.scale > 1.6)) {
+      if (mapState.settings.showLabels && shouldDrawMapLabel(place, isSelected, isTibia)) {
         drawMarkerLabel(ctx, place, point, isSelected);
       }
     });
+  }
+
+  function shouldDrawMapLabel(place, isSelected, isTibia) {
+    if (isSelected) return true;
+    if (isTibia) return mapState.view.scale > 1.6;
+    if (place.custom) return mapState.view.scale > 0.32;
+    if (place.village) return mapState.view.scale > 0.55;
+    if ((place.rank || 99) <= 7) return mapState.view.scale > 0.10;
+    if ((place.rank || 99) <= 14) return mapState.view.scale > 0.22;
+    return mapState.view.scale > 0.34;
   }
 
   function drawMarkerLabel(ctx, place, point, selected) {
@@ -1833,6 +2207,15 @@
 
     if (hit && mapState.tool !== "marker" && mapState.tool !== "paint" && mapState.tool !== "crop") {
       selectMarker(hit.id, false);
+      return;
+    }
+
+    if (IS_PLAYER_VIEW) {
+      mapState.dragging = true;
+      mapState.dragStart = {
+        point: screenPoint,
+        view: { ...mapState.view },
+      };
       return;
     }
 
@@ -2033,14 +2416,15 @@
     }
     const size = importSizeForCrop(crop);
     target.innerHTML = `
-      <span>Recorte: <strong>${crop.w} x ${crop.h}</strong> tiles do Tibia</span>
+      <span>Recorte: <strong>${crop.w} x ${crop.h}</strong> pixels do mapa</span>
       <span>Masmorra: <strong>${size.width} x ${size.height}</strong> quadrados</span>
-      <span>Andar: <strong>${crop.floor}</strong></span>
+      <span>Plano: <strong>Danubia</strong></span>
     `;
     renderMapImportPreview();
   }
 
   function sendMapCropToDungeon() {
+    if (IS_PLAYER_VIEW) return;
     const crop = normalizedMapCrop();
     if (!crop || !mapState.ready) return;
     const size = importSizeForCrop(crop);
@@ -2051,7 +2435,7 @@
       id: `crop-label-${Date.now()}`,
       x: 1,
       y: 1,
-      text: `${conversion.profileLabel} z${crop.floor}`,
+      text: `${conversion.profileLabel} - Danubia`,
       secret: true,
     });
     dungeonState.data = dungeon;
@@ -2247,7 +2631,7 @@
       importRuleDefs.forEach((rule) => {
         if (tileById[rules[rule.id]]) normalized[rule.id] = rules[rule.id];
       });
-      if (profile === "tibia-auto" && rules.orange === "lava") normalized.orange = defaults.orange;
+      if (profile === "danubia-auto" && rules.orange === "lava") normalized.orange = defaults.orange;
       if (rules.darkGreen === "rough" && defaults.darkGreen === "forest") normalized.darkGreen = "forest";
       if (!Object.prototype.hasOwnProperty.call(rules, "green") && defaults.green) normalized.green = defaults.green;
     }
@@ -2255,13 +2639,21 @@
   }
 
   function normalizeImportProfileId(profile, rules) {
-    if (!profile) return "tibia-auto";
-    if (profile === "tibia-dungeon" && rules && !Object.prototype.hasOwnProperty.call(rules, "green")) return "tibia-auto";
-    return importProfileDefaults[profile] ? profile : "tibia-auto";
+    const aliases = {
+      "tibia-auto": "danubia-auto",
+      "tibia-dungeon": "danubia-dungeon",
+      "tibia-world": "danubia-world",
+      "tibia-city": "danubia-city",
+    };
+    const normalized = aliases[profile] || profile;
+    if (!normalized) return "danubia-auto";
+    if (normalized === "danubia-dungeon" && rules && !Object.prototype.hasOwnProperty.call(rules, "green")) return "danubia-auto";
+    return importProfileDefaults[normalized] ? normalized : "danubia-auto";
   }
 
   function defaultImportRules(profile) {
-    return { ...(importProfileDefaults[profile] || importProfileDefaults["tibia-auto"]) };
+    const normalized = normalizeImportProfileId(profile);
+    return { ...(importProfileDefaults[normalized] || importProfileDefaults["danubia-auto"]) };
   }
 
   function importRulesForProfile(profile) {
@@ -2273,28 +2665,29 @@
 
   function resolveImportProfile(crop, size, ruleCounts) {
     const selectedProfile = normalizeImportProfileId(mapState.settings.importProfile);
-    if (selectedProfile !== "tibia-auto") return selectedProfile;
+    if (selectedProfile !== "danubia-auto") return selectedProfile;
     const total = Math.max(1, size.width * size.height);
     const ratio = (ruleId) => (ruleCounts[ruleId] || 0) / total;
     const greenRatio = ratio("green") + ratio("darkGreen") + ratio("lightGreen");
     const urbanRatio = ratio("orange") + ratio("red") + ratio("stone") + ratio("sand");
 
     if (crop.floor >= 6 && crop.floor <= 8 && ratio("orange") > 0.035 && urbanRatio > 0.38 && greenRatio > 0.035) {
-      return "tibia-city";
+      return "danubia-city";
     }
-    if (ratio("orange") > 0.075 && greenRatio < 0.06) return "tibia-dungeon";
-    if (crop.floor >= 6 && crop.floor <= 8) return "tibia-world";
-    return "tibia-dungeon";
+    if (ratio("orange") > 0.075 && greenRatio < 0.06) return "danubia-dungeon";
+    if (crop.floor >= 6 && crop.floor <= 8) return "danubia-world";
+    return "danubia-dungeon";
   }
 
   function importProfileLabel(profile = mapState.settings.importProfile) {
-    return importProfileDefs.find((item) => item.id === profile)?.label || "Tibia automatico";
+    const normalized = normalizeImportProfileId(profile);
+    return importProfileDefs.find((item) => item.id === normalized)?.label || "Automatico Danubia";
   }
 
   function resolvedImportProfileLabel(profile) {
     const selectedProfile = normalizeImportProfileId(mapState.settings.importProfile);
-    if (selectedProfile === "tibia-auto" && profile !== "tibia-auto") {
-      return `${importProfileLabel("tibia-auto")} -> ${importProfileLabel(profile)}`;
+    if (selectedProfile === "danubia-auto" && profile !== "danubia-auto") {
+      return `${importProfileLabel("danubia-auto")} -> ${importProfileLabel(profile)}`;
     }
     return importProfileLabel(profile);
   }
@@ -2328,6 +2721,7 @@
   }
 
   function addCustomMarker(point) {
+    if (IS_PLAYER_VIEW) return;
     const marker = {
       id: `custom-${Date.now()}`,
       custom: true,
@@ -2347,6 +2741,7 @@
   }
 
   function deleteCustomMarker(id) {
+    if (IS_PLAYER_VIEW) return;
     mapState.customMarkers = mapState.customMarkers.filter((marker) => marker.id !== id);
     if (mapState.selectedId === id) mapState.selectedId = null;
     persistSoon();
@@ -2383,7 +2778,7 @@
       <div class="marker-item">
         <div>
           <div class="marker-name">${escapeHtml(place.name)}</div>
-          <div class="marker-type">${escapeHtml(place.type)}${place.source === "tibiamaps" ? " - TibiaMaps" : ""}</div>
+          <div class="marker-type">${escapeHtml(place.type)}</div>
         </div>
         <div class="button-row">
           <button type="button" data-focus-marker="${escapeHtml(place.id)}">Ir</button>
@@ -2408,7 +2803,7 @@
       <h3>${escapeHtml(place.name)}</h3>
       <div class="tag">${escapeHtml(place.type)}</div>
       <p>${escapeHtml(place.note || "Sem nota.")}</p>
-      <div class="coords">Tibia ${coords.x}, ${coords.y}, ${mapState.floor} | Grid ${gridX}, ${gridY}</div>
+      <div class="coords">Mapa ${coords.x}, ${coords.y} | Grid ${gridX}, ${gridY}</div>
       ${place.custom ? `<div class="button-row"><button type="button" data-delete-selected="${escapeHtml(place.id)}">Remover marco</button></div>` : ""}
     `;
     const deleteButton = target.querySelector("[data-delete-selected]");
@@ -2447,7 +2842,7 @@
       <span>Lado equivalente: <strong>${info.sideKm.toFixed(info.sideKm < 10 ? 2 : 1)} km</strong></span>
       <span>Tiles por lado: <strong>${Math.round(info.sideTiles).toLocaleString("pt-BR")}</strong></span>
       <span>Mapa atual: <strong>${info.mapWidthKm.toFixed(1)} x ${info.mapHeightKm.toFixed(1)} km</strong></span>
-      <span>${info.fitsMap ? "Cabe no andar atual." : "Nao cabe inteiro no andar atual nessa escala."}</span>
+      <span>${info.fitsMap ? "Cabe no mapa atual." : "Nao cabe inteiro no mapa atual nessa escala."}</span>
     `;
   }
 
@@ -3060,6 +3455,11 @@
     dungeonCanvas.setPointerCapture(event.pointerId);
     const point = getCanvasPoint(dungeonCanvas, event);
     const cell = screenToDungeonCell(point);
+    if (IS_PLAYER_VIEW) {
+      dungeonState.drawing = true;
+      dungeonState.panStart = { point, view: { ...dungeonState.view } };
+      return;
+    }
     if (dungeonState.mode === "pan") {
       dungeonState.drawing = true;
       dungeonState.panStart = { point, view: { ...dungeonState.view } };
@@ -3092,7 +3492,7 @@
   function handleDungeonPointerMove(event) {
     if (!dungeonState.drawing) return;
     const point = getCanvasPoint(dungeonCanvas, event);
-    if (dungeonState.mode === "pan" && dungeonState.panStart) {
+    if (dungeonState.panStart) {
       const dx = point.x - dungeonState.panStart.point.x;
       const dy = point.y - dungeonState.panStart.point.y;
       dungeonState.view.x = dungeonState.panStart.view.x + dx;
@@ -3130,6 +3530,7 @@
   }
 
   function paintDungeon(cell) {
+    if (IS_PLAYER_VIEW) return;
     const radius = Math.floor((dungeonState.brushSize - 1) / 2);
     for (let y = cell.y - radius; y <= cell.y + radius; y += 1) {
       for (let x = cell.x - radius; x <= cell.x + radius; x += 1) {
@@ -3139,6 +3540,7 @@
   }
 
   function applyRoom(start, end) {
+    if (IS_PLAYER_VIEW) return;
     const rect = cellRect(start, end);
     for (let y = rect.y; y < rect.y + rect.h; y += 1) {
       for (let x = rect.x; x < rect.x + rect.w; x += 1) {
@@ -3150,6 +3552,7 @@
   }
 
   function applyCorridor(start, end) {
+    if (IS_PLAYER_VIEW) return;
     cellsOnLine(start, end).forEach((cell) => {
       if (!inDungeon(cell.x, cell.y)) return;
       paintDungeon({ x: cell.x, y: cell.y });
@@ -3157,11 +3560,13 @@
   }
 
   function pushDungeonUndo() {
+    if (IS_PLAYER_VIEW) return;
     dungeonState.undo.push(JSON.stringify(dungeonState.data));
     if (dungeonState.undo.length > 40) dungeonState.undo.shift();
   }
 
   function undoDungeon() {
+    if (IS_PLAYER_VIEW) return;
     const snapshot = dungeonState.undo.pop();
     if (!snapshot) return;
     dungeonState.data = normalizeDungeon(JSON.parse(snapshot)) || createDungeon(30, 22);
@@ -3178,6 +3583,7 @@
   }
 
   function loadDungeonJson(event) {
+    if (IS_PLAYER_VIEW) return;
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -3233,7 +3639,7 @@
 
   function sendDungeonToMesa() {
     if (!window.MesaCombate?.importDungeonMap) {
-      alert("A Mesa ainda nao carregou. Recarregue a pagina e tente novamente.");
+      alert("O Grid de batalha ainda nao carregou. Recarregue a pagina e tente novamente.");
       return;
     }
     const { width, height } = dungeonState.data;
@@ -3269,7 +3675,7 @@
       cellPx: displayCell,
     });
     if (!ok) {
-      alert("Nao foi possivel enviar esta masmorra para a Mesa.");
+      alert("Nao foi possivel enviar esta masmorra para o Grid de batalha.");
       return;
     }
     setActiveMode("mesa", true);
@@ -3834,7 +4240,7 @@
     const aspect = 1.42;
     const widthM = Math.sqrt(areaM2 * aspect);
     const heightM = areaM2 / widthM;
-    const center = { x: widthM * 0.53, y: heightM * 0.50 };
+    const center = { x: widthM * 0.53, y: heightM * 0.49 };
     const wall = buildIllustratedWall(widthM, heightM, center, rng);
     const river = settings.showWater ? buildIllustratedRiver(widthM, heightM, rng) : [];
     const districts = buildIllustratedDistricts(widthM, heightM, wall, rng);
@@ -3846,7 +4252,7 @@
     const markers = buildIllustratedMarkers(widthM, heightM, wall, center);
 
     cityState.data = {
-      mapVersion: 3,
+      mapVersion: 4,
       name: settings.name,
       population: settings.population,
       areaKm2: settings.areaKm2,
@@ -3871,18 +4277,20 @@
   }
 
   function buildIllustratedWall(width, height, center, rng) {
-    const rx = width * 0.34;
-    const ry = height * 0.34;
+    const rx = width * 0.43;
+    const ry = height * 0.40;
     const points = [];
-    const count = 38;
+    const count = 46;
     for (let i = 0; i < count; i += 1) {
       const angle = -Math.PI / 2 + (i / count) * Math.PI * 2;
-      const westPull = Math.cos(angle) < -0.72 ? 0.90 : 1;
-      const southPush = Math.sin(angle) > 0.55 ? 1.08 : 1;
-      const jitterScale = 0.92 + rng() * 0.18;
+      const westPull = Math.cos(angle) < -0.72 ? 0.84 : 1;
+      const northRise = Math.sin(angle) < -0.62 ? 0.92 : 1;
+      const southPush = Math.sin(angle) > 0.50 ? 1.13 : 1;
+      const eastBend = Math.cos(angle) > 0.72 ? 1.04 : 1;
+      const jitterScale = 0.94 + rng() * 0.12;
       points.push({
-        x: center.x + Math.cos(angle) * rx * jitterScale * westPull + Math.sin(angle * 2.7) * width * 0.018,
-        y: center.y + Math.sin(angle) * ry * jitterScale * southPush + Math.cos(angle * 2.2) * height * 0.014,
+        x: center.x + Math.cos(angle) * rx * jitterScale * westPull * eastBend + Math.sin(angle * 2.7) * width * 0.014,
+        y: center.y + Math.sin(angle) * ry * jitterScale * southPush * northRise + Math.cos(angle * 2.2) * height * 0.010,
       });
     }
     const gates = [
@@ -3892,8 +4300,8 @@
       { id: "west", name: "Porta das Docas", angle: Math.PI, type: "Portao" },
     ].map((gate) => ({
       ...gate,
-      x: center.x + Math.cos(gate.angle) * rx * (gate.id === "west" ? 0.88 : 0.98),
-      y: center.y + Math.sin(gate.angle) * ry * (gate.id === "south" ? 1.06 : 0.98),
+      x: center.x + Math.cos(gate.angle) * rx * (gate.id === "west" ? 0.83 : 0.98),
+      y: center.y + Math.sin(gate.angle) * ry * (gate.id === "south" ? 1.09 : 0.98),
     }));
     return { center, rx, ry, points, gates };
   }
@@ -3901,15 +4309,16 @@
   function buildIllustratedDistricts(width, height, wall, rng) {
     const c = wall.center;
     return [
-      makeIllustratedDistrict("castle", "Cidadela Real", c.x - width * 0.02, c.y - height * 0.31, width * 0.15, height * 0.095, -0.04, "#b9b3a4", 0.28, 3, rng),
-      makeIllustratedDistrict("old", "Centro Antigo", c.x - width * 0.04, c.y - height * 0.06, width * 0.19, height * 0.15, 0.10, "#c7b18b", 0.92, 3, rng),
-      makeIllustratedDistrict("market", "Mercado Grande", c.x + width * 0.08, c.y + height * 0.14, width * 0.17, height * 0.11, -0.08, "#d1bc84", 0.78, 3, rng),
-      makeIllustratedDistrict("port", "Porto e Docas", c.x - width * 0.27, c.y + height * 0.10, width * 0.15, height * 0.20, 0.55, "#b49676", 0.82, 2, rng),
-      makeIllustratedDistrict("craft", "Oficinas e Forjas", c.x - width * 0.16, c.y + height * 0.23, width * 0.16, height * 0.12, -0.08, "#aa8165", 0.86, 2, rng),
-      makeIllustratedDistrict("noble", "Bairro Nobre", c.x + width * 0.20, c.y - height * 0.15, width * 0.16, height * 0.13, -0.16, "#c9b99b", 0.46, 2, rng),
-      makeIllustratedDistrict("temple", "Distrito dos Templos", c.x + width * 0.23, c.y + height * 0.04, width * 0.14, height * 0.11, 0.08, "#d6ceb5", 0.40, 2, rng),
-      makeIllustratedDistrict("garden", "Jardins Murados", c.x - width * 0.25, c.y - height * 0.18, width * 0.14, height * 0.13, -0.18, "#9fb084", 0.26, 1, rng),
-      makeIllustratedDistrict("outer", "Bairros Externos", c.x + width * 0.21, c.y + height * 0.30, width * 0.17, height * 0.11, -0.14, "#b98967", 0.70, 1, rng, true),
+      makeIllustratedDistrict("castle", "Cidadela Real", c.x - width * 0.01, c.y - height * 0.33, width * 0.23, height * 0.12, -0.03, "#b9b3a4", 0.34, 3, rng),
+      makeIllustratedDistrict("old", "Centro Antigo", c.x - width * 0.04, c.y - height * 0.07, width * 0.28, height * 0.19, 0.08, "#c7b18b", 0.94, 3, rng),
+      makeIllustratedDistrict("market", "Mercado Grande", c.x + width * 0.09, c.y + height * 0.15, width * 0.24, height * 0.14, -0.06, "#d1bc84", 0.82, 3, rng),
+      makeIllustratedDistrict("port", "Porto e Docas", c.x - width * 0.34, c.y + height * 0.10, width * 0.22, height * 0.24, 0.42, "#b49676", 0.86, 2, rng),
+      makeIllustratedDistrict("craft", "Oficinas e Forjas", c.x - width * 0.18, c.y + height * 0.27, width * 0.23, height * 0.15, -0.08, "#aa8165", 0.88, 2, rng),
+      makeIllustratedDistrict("noble", "Bairro Nobre", c.x + width * 0.24, c.y - height * 0.17, width * 0.23, height * 0.16, -0.13, "#c9b99b", 0.52, 2, rng),
+      makeIllustratedDistrict("temple", "Distrito dos Templos", c.x + width * 0.27, c.y + height * 0.05, width * 0.19, height * 0.14, 0.07, "#d6ceb5", 0.44, 2, rng),
+      makeIllustratedDistrict("garden", "Jardins Murados", c.x - width * 0.30, c.y - height * 0.20, width * 0.19, height * 0.17, -0.18, "#9fb084", 0.30, 1, rng),
+      makeIllustratedDistrict("outer", "Bairros Externos", c.x + width * 0.18, c.y + height * 0.34, width * 0.30, height * 0.15, -0.11, "#b98967", 0.78, 1, rng, true),
+      makeIllustratedDistrict("south", "Arrabalde Sul", c.x - width * 0.06, c.y + height * 0.42, width * 0.24, height * 0.11, 0.04, "#b99578", 0.70, 1, rng, true),
     ];
   }
 
@@ -3940,8 +4349,10 @@
     roads.push({ type: "avenue", name: "Eixo Real", points: [{ x: c.x - width * 0.06, y: c.y - height * 0.34 }, { x: c.x - width * 0.02, y: c.y - height * 0.10 }, c, { x: c.x + width * 0.06, y: c.y + height * 0.25 }] });
     roads.push({ type: "major", name: "Rua das Docas", points: [{ x: c.x - width * 0.32, y: c.y + height * 0.14 }, { x: c.x - width * 0.13, y: c.y + height * 0.10 }, c, { x: c.x + width * 0.24, y: c.y + height * 0.07 }] });
     roads.push({ type: "major", name: "Estrada dos Mercadores", points: [{ x: c.x - width * 0.20, y: c.y + height * 0.26 }, { x: c.x + width * 0.06, y: c.y + height * 0.16 }, { x: c.x + width * 0.33, y: c.y + height * 0.22 }] });
+    roads.push({ type: "major", name: "Anel Alto", points: makeRoadArc(c, width * 0.28, height * 0.21, -2.75, 0.10, 18) });
+    roads.push({ type: "major", name: "Anel Baixo", points: makeRoadArc(c, width * 0.31, height * 0.25, 0.05, 2.82, 18) });
     districts.forEach((district) => {
-      const localCount = district.importance + (cityState.settings.densityMode === "high" ? 3 : cityState.settings.densityMode === "medium" ? 2 : 1);
+      const localCount = Math.max(1, district.importance + (cityState.settings.densityMode === "high" ? 1 : 0));
       for (let i = -localCount; i <= localCount; i += 1) {
         const t = i / Math.max(1, localCount + 1);
         const span = district.rx * (0.78 + rng() * 0.12);
@@ -3964,6 +4375,19 @@
       }
     });
     return roads;
+  }
+
+  function makeRoadArc(center, rx, ry, start, end, count) {
+    const points = [];
+    for (let i = 0; i <= count; i += 1) {
+      const t = i / count;
+      const angle = start + (end - start) * t;
+      points.push({
+        x: center.x + Math.cos(angle) * rx,
+        y: center.y + Math.sin(angle) * ry,
+      });
+    }
+    return points;
   }
 
   function buildIllustratedRiver(width, height, rng) {
@@ -4022,8 +4446,8 @@
   function buildIllustratedBlocks(width, height, wall, districts, rng) {
     const blocks = [];
     districts.forEach((district) => {
-      const baseW = district.id === "old" ? 145 : district.id === "market" ? 165 : district.id === "noble" ? 215 : 185;
-      const baseH = district.id === "old" ? 105 : district.id === "port" ? 130 : 125;
+      const baseW = district.id === "old" ? 185 : district.id === "market" ? 210 : district.id === "noble" ? 260 : 225;
+      const baseH = district.id === "old" ? 130 : district.id === "port" ? 165 : 150;
       for (let u = -district.rx * 0.78; u < district.rx * 0.78; u += baseW + rng() * 42) {
         for (let v = -district.ry * 0.76; v < district.ry * 0.76; v += baseH + rng() * 36) {
           const w = baseW * (0.72 + rng() * 0.45);
@@ -4057,8 +4481,8 @@
     blocks.forEach((block) => {
       if (block.plaza) return;
       const district = districts.find((item) => item.id === block.districtId) || districts[0];
-      const lotW = blockMode ? 78 : district.id === "old" ? 34 : 44;
-      const lotH = blockMode ? 54 : district.id === "old" ? 27 : 34;
+      const lotW = blockMode ? 96 : district.id === "old" ? 44 : 56;
+      const lotH = blockMode ? 68 : district.id === "old" ? 34 : 42;
       const cols = clamp(Math.floor(block.w / lotW), 1, blockMode ? 3 : 8);
       const rows = clamp(Math.floor(block.h / lotH), 1, blockMode ? 3 : 6);
       const chance = clamp(district.density * density, 0.15, 0.96);
@@ -4083,7 +4507,7 @@
         }
       }
     });
-    const cap = cityState.settings.densityMode === "high" ? 5200 : cityState.settings.densityMode === "medium" ? 3600 : 2200;
+    const cap = cityState.settings.densityMode === "high" ? 6800 : cityState.settings.densityMode === "medium" ? 4600 : 2800;
     return buildings.slice(0, cap);
   }
 
@@ -4288,13 +4712,12 @@
     data.districts?.forEach((district) => {
       ctx.save();
       ctx.fillStyle = district.color;
-      ctx.globalAlpha = 0.12;
+      ctx.globalAlpha = 0.16;
       drawClosedPolygon(ctx, district.polygon);
       ctx.fill();
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.18;
       ctx.strokeStyle = theme.districtLine;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([18, 14]);
+      ctx.lineWidth = 1.2;
       drawClosedPolygon(ctx, district.polygon);
       ctx.stroke();
       ctx.restore();
@@ -4329,6 +4752,7 @@
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
+      ctx.globalAlpha = road.type === "lane" ? 0.42 : road.type === "street" ? 0.68 : 0.95;
       ctx.strokeStyle = theme.roadBorder;
       ctx.lineWidth = width + 7;
       drawPolyline(ctx, road.points);
@@ -4518,7 +4942,7 @@
   }
 
   function roadWidth(road) {
-    return road.type === "avenue" ? 34 : road.type === "major" ? 23 : road.type === "street" ? 13 : 8;
+    return road.type === "avenue" ? 42 : road.type === "major" ? 28 : road.type === "street" ? 15 : 7;
   }
 
   function makeBlobPolygon(cx, cy, rx, ry, count, rng, rotation = 0, variance = 0.14) {
@@ -4647,6 +5071,10 @@
     cityCanvas.setPointerCapture(event.pointerId);
     const world = screenToCity(getCanvasPoint(cityCanvas, event));
     if (!cityState.data) return;
+    if (IS_PLAYER_VIEW) {
+      startCityPan(event);
+      return;
+    }
     if (event.button !== 0 || event.shiftKey || cityState.settings.tool === "pan") {
       startCityPan(event);
       return;
@@ -4720,6 +5148,7 @@
   }
 
   function startCityStroke(type, point) {
+    if (IS_PLAYER_VIEW) return;
     cityState.drawing = true;
     cityState.currentStroke = {
       id: `city-${type}-${Date.now()}`,
@@ -4743,6 +5172,12 @@
   }
 
   function finishCityDrawing() {
+    if (IS_PLAYER_VIEW) {
+      cityState.drawing = false;
+      cityState.currentStroke = null;
+      cityState.lastStamp = null;
+      return;
+    }
     if (cityState.currentStroke && cityState.data) {
       ensureCityManual(cityState.data);
       const stroke = cityState.currentStroke;
@@ -4765,6 +5200,7 @@
   }
 
   function stampCityBuilding(point) {
+    if (IS_PLAYER_VIEW) return;
     if (!cityState.data) return;
     ensureCityManual(cityState.data);
     const spec = cityBuildingSpec(cityState.settings.buildingKind);
@@ -4789,6 +5225,7 @@
   }
 
   function addCityMarker(point) {
+    if (IS_PLAYER_VIEW) return;
     if (!cityState.data) return;
     ensureCityManual(cityState.data);
     const marker = {
@@ -4807,6 +5244,7 @@
   }
 
   function eraseCityAt(point) {
+    if (IS_PLAYER_VIEW) return;
     if (!cityState.data) return;
     ensureCityManual(cityState.data);
     const radius = cityState.settings.brushMeters;
@@ -4829,12 +5267,14 @@
   }
 
   function pushCityAction(action) {
+    if (IS_PLAYER_VIEW) return;
     cityState.undo.push(action);
     cityState.redo = [];
     if (cityState.undo.length > 80) cityState.undo.shift();
   }
 
   function undoCityEdit() {
+    if (IS_PLAYER_VIEW) return;
     const action = cityState.undo.pop();
     if (!action || !cityState.data) return;
     applyCityAction(action, true);
@@ -4845,6 +5285,7 @@
   }
 
   function redoCityEdit() {
+    if (IS_PLAYER_VIEW) return;
     const action = cityState.redo.pop();
     if (!action || !cityState.data) return;
     applyCityAction(action, false);
@@ -5095,6 +5536,7 @@
   }
 
   function handleKeyboard(event) {
+    if (IS_PLAYER_VIEW) return;
     const key = event.key.toLowerCase();
     if (activeMode === "map" && event.ctrlKey && key === "z") {
       event.preventDefault();
@@ -5122,6 +5564,193 @@
       event.preventDefault();
       redoCityEdit();
     }
+  }
+
+  function generateStructuredDungeon() {
+    const width = clamp(parseInt($("#dungeonWidth").value, 10) || dungeonState.data.width || 40, 5, DUNGEON_MAX_SIZE);
+    const height = clamp(parseInt($("#dungeonHeight").value, 10) || dungeonState.data.height || 30, 5, DUNGEON_MAX_SIZE);
+    const options = {
+      layout: $("#dungeonLayout")?.value || "classic",
+      density: $("#dungeonRoomDensity")?.value || "normal",
+      corridor: $("#dungeonCorridorStyle")?.value || "errant",
+      doors: $("#dungeonAddDoors")?.checked ?? true,
+      secrets: $("#dungeonAddSecrets")?.checked ?? true,
+      stairs: $("#dungeonAddStairs")?.checked ?? true,
+    };
+    pushDungeonUndo();
+    dungeonState.data = buildStructuredDungeon(width, height, options);
+    dungeonState.mode = "pan";
+    $$("[data-dungeon-mode]").forEach((item) => item.classList.toggle("active", item.dataset.dungeonMode === "pan"));
+    syncDungeonInputs();
+    fitDungeon();
+    persistSoon();
+    renderDungeon();
+    renderLabelList();
+  }
+
+  function buildStructuredDungeon(width, height, options) {
+    const rng = createRng(`${cityState.settings.seed}:${Date.now()}:${width}x${height}:${options.layout}:${options.density}:${options.corridor}`);
+    const dungeon = createDungeon(width, height);
+    dungeon.cells.fill("wall");
+    const idx = (x, y) => y * width + x;
+    const set = (x, y, tile) => {
+      if (x >= 1 && y >= 1 && x < width - 1 && y < height - 1) dungeon.cells[idx(x, y)] = tile;
+    };
+    const get = (x, y) => (x >= 0 && y >= 0 && x < width && y < height ? dungeon.cells[idx(x, y)] : "wall");
+    const rooms = [];
+    const area = width * height;
+    const densityFactor = { sparse: 0.72, normal: 1, dense: 1.34 }[options.density] || 1;
+    const targetRooms = clamp(Math.round(Math.sqrt(area) * densityFactor * (options.layout === "compact" ? 0.82 : options.layout === "sprawl" ? 1.18 : 1)), 5, 90);
+    const maxAttempts = targetRooms * 20;
+    for (let attempt = 0; attempt < maxAttempts && rooms.length < targetRooms; attempt += 1) {
+      const roomW = clamp(Math.floor(4 + rng() * (options.layout === "compact" ? 8 : 13)), 4, Math.max(4, Math.floor(width * 0.18)));
+      const roomH = clamp(Math.floor(4 + rng() * (options.layout === "compact" ? 7 : 11)), 4, Math.max(4, Math.floor(height * 0.18)));
+      const x = 2 + Math.floor(rng() * Math.max(1, width - roomW - 4));
+      const y = 2 + Math.floor(rng() * Math.max(1, height - roomH - 4));
+      const room = { x, y, w: roomW, h: roomH, cx: Math.floor(x + roomW / 2), cy: Math.floor(y + roomH / 2) };
+      if (rooms.some((other) => rectsOverlap(room, other, options.layout === "compact" ? 2 : 4))) continue;
+      carveRoom(dungeon, room, set);
+      rooms.push(room);
+    }
+    if (!rooms.length) {
+      const room = { x: 2, y: 2, w: Math.max(3, width - 4), h: Math.max(3, height - 4), cx: Math.floor(width / 2), cy: Math.floor(height / 2) };
+      carveRoom(dungeon, room, set);
+      rooms.push(room);
+    }
+
+    rooms.sort((a, b) => a.cx - b.cx || a.cy - b.cy);
+    const connected = [rooms[0]];
+    const remaining = rooms.slice(1);
+    while (remaining.length) {
+      let best = { score: Infinity, from: connected[0], index: 0 };
+      remaining.forEach((room, index) => {
+        connected.forEach((from) => {
+          const score = Math.abs(room.cx - from.cx) + Math.abs(room.cy - from.cy) + rng() * (options.layout === "sprawl" ? 12 : 5);
+          if (score < best.score) best = { score, from, index };
+        });
+      });
+      const room = remaining.splice(best.index, 1)[0];
+      carveCorridor(dungeon, best.from, room, set, options, rng);
+      connected.push(room);
+    }
+
+    const extraLinks = options.layout === "sprawl" ? Math.floor(rooms.length * 0.42) : options.layout === "compact" ? Math.floor(rooms.length * 0.18) : Math.floor(rooms.length * 0.28);
+    for (let i = 0; i < extraLinks; i += 1) {
+      const a = rooms[Math.floor(rng() * rooms.length)];
+      const b = rooms[Math.floor(rng() * rooms.length)];
+      if (a && b && a !== b) carveCorridor(dungeon, a, b, set, options, rng);
+    }
+
+    if (options.layout === "cavern") roughenDungeonCaves(dungeon, set, get, rng);
+    if (options.doors) addStructuredDoors(dungeon, rooms, set, get, rng);
+    if (options.secrets) addStructuredSecretsAndTreasure(dungeon, rooms, set, get, rng);
+    if (options.stairs) addStructuredStairs(dungeon, rooms, set);
+    dungeon.labels = buildStructuredDungeonLabels(rooms, options);
+    return dungeon;
+  }
+
+  function rectsOverlap(a, b, pad = 1) {
+    return a.x - pad < b.x + b.w && a.x + a.w + pad > b.x && a.y - pad < b.y + b.h && a.y + a.h + pad > b.y;
+  }
+
+  function carveRoom(dungeon, room, set) {
+    for (let y = room.y; y < room.y + room.h; y += 1) {
+      for (let x = room.x; x < room.x + room.w; x += 1) set(x, y, "floor");
+    }
+  }
+
+  function carveCorridor(dungeon, a, b, set, options, rng) {
+    let x = a.cx;
+    let y = a.cy;
+    const turnFirst = options.corridor === "straight" ? rng() < 0.5 : rng() < 0.68;
+    const wander = options.corridor === "labyrinth" ? 0.30 : options.corridor === "errant" ? 0.16 : 0.04;
+    const stepX = () => {
+      if (x === b.cx) return;
+      x += x < b.cx ? 1 : -1;
+      set(x, y, "floor");
+      if (rng() < wander) set(x, y + (rng() < 0.5 ? 1 : -1), "floor");
+    };
+    const stepY = () => {
+      if (y === b.cy) return;
+      y += y < b.cy ? 1 : -1;
+      set(x, y, "floor");
+      if (rng() < wander) set(x + (rng() < 0.5 ? 1 : -1), y, "floor");
+    };
+    const safety = dungeon.width + dungeon.height + 20;
+    for (let i = 0; i < safety && (x !== b.cx || y !== b.cy); i += 1) {
+      if (turnFirst) {
+        if (x !== b.cx) stepX();
+        else stepY();
+      } else if (y !== b.cy) stepY();
+      else stepX();
+      if (options.corridor === "labyrinth" && rng() < 0.10) {
+        for (let n = 0; n < 2 + Math.floor(rng() * 5); n += 1) (rng() < 0.5 ? stepX : stepY)();
+      }
+    }
+  }
+
+  function roughenDungeonCaves(dungeon, set, get, rng) {
+    for (let y = 2; y < dungeon.height - 2; y += 1) {
+      for (let x = 2; x < dungeon.width - 2; x += 1) {
+        if (get(x, y) !== "floor") continue;
+        if (rng() < 0.22) set(x + (rng() < 0.5 ? 1 : -1), y + (rng() < 0.5 ? 1 : -1), "floor");
+        if (rng() < 0.08) set(x, y, "rough");
+      }
+    }
+  }
+
+  function addStructuredDoors(dungeon, rooms, set, get, rng) {
+    rooms.forEach((room) => {
+      const candidates = [];
+      for (let x = room.x; x < room.x + room.w; x += 1) {
+        [{ x, y: room.y - 1 }, { x, y: room.y + room.h }].forEach((p) => {
+          if (get(p.x, p.y) === "floor") candidates.push({ x, y: p.y === room.y - 1 ? room.y : room.y + room.h - 1 });
+        });
+      }
+      for (let y = room.y; y < room.y + room.h; y += 1) {
+        [{ x: room.x - 1, y }, { x: room.x + room.w, y }].forEach((p) => {
+          if (get(p.x, p.y) === "floor") candidates.push({ x: p.x === room.x - 1 ? room.x : room.x + room.w - 1, y });
+        });
+      }
+      candidates.sort(() => rng() - 0.5).slice(0, 2).forEach((p) => set(p.x, p.y, "door"));
+    });
+  }
+
+  function addStructuredSecretsAndTreasure(dungeon, rooms, set, get, rng) {
+    rooms.forEach((room, index) => {
+      if (index > 0 && rng() < 0.15) set(room.x + Math.floor(rng() * room.w), room.y + Math.floor(rng() * room.h), "chest");
+      if (rng() < 0.10) set(room.x + Math.floor(rng() * room.w), room.y + Math.floor(rng() * room.h), "trap");
+      if (rng() < 0.10) {
+        const side = Math.floor(rng() * 4);
+        const x = side < 2 ? room.x + Math.floor(rng() * room.w) : side === 2 ? room.x : room.x + room.w - 1;
+        const y = side >= 2 ? room.y + Math.floor(rng() * room.h) : side === 0 ? room.y : room.y + room.h - 1;
+        set(x, y, "secret");
+      }
+    });
+  }
+
+  function addStructuredStairs(dungeon, rooms, set) {
+    const first = rooms[0];
+    const last = rooms[rooms.length - 1] || first;
+    set(first.cx, first.cy, "stairs");
+    set(last.cx, last.cy, "stairs");
+  }
+
+  function buildStructuredDungeonLabels(rooms, options) {
+    const important = rooms
+      .map((room, index) => ({ room, area: room.w * room.h, index }))
+      .sort((a, b) => b.area - a.area)
+      .slice(0, 8);
+    const names = options.layout === "cavern"
+      ? ["Entrada Natural", "Galeria Umida", "Fosso Antigo", "Ninho", "Lago Subterraneo", "Veio Mineral", "Camara Ecoante", "Saida Baixa"]
+      : ["Entrada", "Sala de Guarda", "Salao Principal", "Deposito", "Santuario", "Tesouraria", "Cela", "Escada Inferior"];
+    return important.map((item, index) => ({
+      id: `label-${Date.now()}-${index}`,
+      x: item.room.cx,
+      y: item.room.cy,
+      text: names[index] || `Sala ${index + 1}`,
+      secret: index > 4,
+    }));
   }
 
   function createDungeon(width, height) {
@@ -5218,9 +5847,7 @@
   function placePoint(place) {
     if (!place) return { x: 0, y: 0 };
     if (Number.isFinite(place.x) && Number.isFinite(place.y)) return { x: place.x, y: place.y };
-    if (Number.isFinite(place.coordX) && Number.isFinite(place.coordY)) {
-      return { x: place.coordX - tibiaMap.originX, y: place.coordY - tibiaMap.originY };
-    }
+    if (Number.isFinite(place.coordX) && Number.isFinite(place.coordY)) return { x: place.coordX, y: place.coordY };
     return { x: place.rx * mapImage.width, y: place.ry * mapImage.height };
   }
 
@@ -5230,8 +5857,8 @@
     }
     const point = placePoint(place);
     return {
-      x: Math.round(tibiaMap.originX + point.x),
-      y: Math.round(tibiaMap.originY + point.y),
+      x: Math.round(point.x),
+      y: Math.round(point.y),
     };
   }
 
@@ -5282,35 +5909,21 @@
     return getAllPlaces(true).find((place) => place.id === id) || null;
   }
 
-  function getAllPlaces(includeTibiaMarkers = false) {
+  function getAllPlaces() {
     const floor = mapState.floor;
     const base = builtInPlaces.filter((place) => place.floor === floor);
     const custom = mapState.customMarkers
       .filter((marker) => (marker.floor ?? 7) === floor)
       .map((marker) => ({ ...marker, custom: true }));
-    const tibia = includeTibiaMarkers && mapState.settings.showTibiaMarkers
-      ? mapState.tibiaMarkers.filter((marker) => marker.floor === floor)
-      : [];
-    return [...base, ...custom, ...tibia];
+    return [...base, ...custom];
   }
 
   function getListPlaces(query) {
-    const includeTibia = mapState.settings.showTibiaMarkers && query.length >= 2;
-    return getAllPlaces(includeTibia);
+    return getAllPlaces();
   }
 
   function getDrawablePlaces() {
-    const base = getAllPlaces(false);
-    if (!mapState.settings.showTibiaMarkers || mapState.view.scale < 0.45) return base;
-    const viewport = visibleImageRect();
-    const visibleTibia = mapState.tibiaMarkers
-      .filter((marker) => marker.floor === mapState.floor)
-      .filter((marker) => {
-        const point = placePoint(marker);
-        return point.x >= viewport.x - 40 && point.y >= viewport.y - 40 && point.x <= viewport.x + viewport.w + 40 && point.y <= viewport.y + viewport.h + 40;
-      })
-      .slice(0, 450);
-    return [...base, ...visibleTibia];
+    return getAllPlaces();
   }
 
   function getExportPlaces() {
@@ -5345,14 +5958,19 @@
     const w = Number(bounds.w);
     const h = Number(bounds.h);
     if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 10 || h <= 10) return null;
+    const fullWorld = Boolean(map.fullWorld);
     return {
-      version: 1,
+      version: fullWorld ? Math.max(4, Math.floor(Number(map.version) || 4)) : 1,
+      fullWorld,
       floor: clamp(Math.floor(map.floor ?? 7), 0, 15),
       seed: Math.abs(Math.floor(Number(map.seed) || 1)),
       resolution: clamp(Math.round(Number(map.resolution) || 1200), 512, 1600),
+      resolutionW: fullWorld ? clamp(Math.round(Number(map.resolutionW) || 1792), 768, 2048) : undefined,
+      resolutionH: fullWorld ? clamp(Math.round(Number(map.resolutionH) || 1344), 576, 1536) : undefined,
       areaKm2: Number.isFinite(Number(map.areaKm2)) ? Number(map.areaKm2) : 0,
       urbanKm2: Number.isFinite(Number(map.urbanKm2)) ? Number(map.urbanKm2) : FANTASY_CITY_MIN_KM2,
       population: Math.max(1, Math.round(Number(map.population) || 200000)),
+      continents: fullWorld ? 8 : undefined,
       bounds: {
         x: Math.round(Number(bounds.x || 0) * 10) / 10,
         y: Math.round(Number(bounds.y || 0) * 10) / 10,
@@ -5375,35 +5993,19 @@
   }
 
   async function loadTibiaMarkers() {
-    mapState.loadingMarkers = true;
-    try {
-      const response = await fetch(assets.markers);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const markers = await response.json();
-      mapState.tibiaMarkers = markers
-        .filter((marker) => Number.isFinite(marker.x) && Number.isFinite(marker.y) && Number.isFinite(marker.z))
-        .map((marker, index) => ({
-          id: `tibiamaps-${index}`,
-          source: "tibiamaps",
-          name: marker.description?.trim() || marker.icon || "Marcador",
-          type: marker.icon || "TibiaMaps",
-          note: marker.description?.trim() || "Marcador importado do TibiaMaps.",
-          coordX: marker.x,
-          coordY: marker.y,
-          floor: marker.z,
-        }));
-    } catch (error) {
-      mapState.tibiaMarkers = [];
-      console.warn("Nao foi possivel carregar marcadores TibiaMaps.", error);
-    } finally {
-      mapState.loadingMarkers = false;
-      renderMarkerList();
-      renderMap();
-    }
+    mapState.loadingMarkers = false;
+    mapState.tibiaMarkers = [];
+    renderMarkerList();
+    renderMap();
   }
 
   function mapUrlForFloor(floor) {
-    return `${assets.mapBase}/floor-${String(floor).padStart(2, "0")}-map.png`;
+    return blankDanubiaWorldUrl();
+  }
+
+  function blankDanubiaWorldUrl() {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${DANUBIA_WORLD_WIDTH}" height="${DANUBIA_WORLD_HEIGHT}" viewBox="0 0 ${DANUBIA_WORLD_WIDTH} ${DANUBIA_WORLD_HEIGHT}"><rect width="100%" height="100%" fill="#3f708e"/></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
   function cityScaleInfo() {
@@ -5475,6 +6077,7 @@
         settings: cityState.settings,
         data: cityState.data,
       },
+      permissions: previousPayload.permissions || { playerTabs: ["mesa"] },
       mesa: mesaPayload?.mesa ?? previousPayload.mesa,
       sheets: mesaPayload?.sheets ?? previousPayload.sheets,
       monsters_cache: mesaPayload?.monsters_cache ?? previousPayload.monsters_cache,
@@ -5485,7 +6088,7 @@
       if (!payload.mesa?.scene) throw error;
       payload.mesa = { ...payload.mesa, scene: null };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      alert("A cena da Mesa ficou grande demais para salvar no navegador. Ela esta visivel agora, mas pode sumir ao recarregar.");
+      alert("A cena do Grid de batalha ficou grande demais para salvar no navegador. Ela esta visivel agora, mas pode sumir ao recarregar.");
     }
     window.dispatchEvent(new CustomEvent("danubia:state-saved", { detail: payload }));
     const now = new Date();

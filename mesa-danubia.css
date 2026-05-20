@@ -908,11 +908,15 @@ canvas {
   gap: 8px;
 }
 
+.shield-full-link {
+  margin-bottom: 10px;
+}
+
 .gm-shield.is-collapsed {
   display: none;
 }
 
-.gm-shield div {
+.gm-shield details {
   display: grid;
   gap: 3px;
   padding: 8px;
@@ -921,10 +925,27 @@ canvas {
   background: rgba(0, 0, 0, 0.14);
 }
 
-.gm-shield strong {
+.gm-shield summary {
   color: var(--gold);
+  cursor: pointer;
+  font-weight: 800;
 }
 
+.gm-shield ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.gm-shield li {
+  margin: 4px 0;
+}
+
+.gm-shield [hidden] {
+  display: none;
+}
+
+.gm-shield strong,
 .gm-shield span {
   color: var(--muted);
 }
@@ -1073,6 +1094,10 @@ canvas {
   display: none;
 }
 
+.player-view [data-gm-only] {
+  display: none !important;
+}
+
 .player-view .stage {
   min-height: calc(100vh - 94px);
 }
@@ -1080,6 +1105,37 @@ canvas {
 .player-view .mode-tabs,
 .player-view .save-status {
   display: none;
+}
+
+.player-view.online-tabs .mode-tabs {
+  display: flex;
+}
+
+.player-view .mode-link {
+  display: none !important;
+}
+
+.player-view canvas {
+  cursor: grab;
+}
+
+.online-status {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 70;
+  max-width: 280px;
+  padding: 8px 11px;
+  border: 1px solid rgba(210, 173, 85, 0.42);
+  border-radius: 999px;
+  background: rgba(18, 16, 13, 0.92);
+  color: var(--paper);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+  font-size: 0.84rem;
+}
+
+.online-status strong {
+  color: var(--gold);
 }
 
 .sprite-palette {

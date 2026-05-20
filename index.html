@@ -4,6 +4,31 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Danubia — Compêndio de Cidades e Vilarejos</title>
+<script>
+(() => {
+  "use strict";
+  const SESSION_KEY = "danubia-online-session";
+  const params = new URLSearchParams(location.search);
+  const isLocal = location.protocol === "file:" || ["localhost", "127.0.0.1", ""].includes(location.hostname);
+  let session = null;
+  try {
+    session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+  } catch {
+    session = null;
+  }
+  const role = params.get("role") || session?.role || "";
+  const room = params.get("room") || session?.room || "";
+  const key = params.get("key") || session?.key || "";
+  if (!isLocal && (role !== "gm" || !room || !key)) {
+    location.replace("/login.html");
+    return;
+  }
+  if (role === "gm" && room && key) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ role: "gm", room, key, slot: 0, name: "Mestre" }));
+  }
+  window.DANUBIA_SESSION = { role, room, key };
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet"/>
 <style>
 /* ═══════════════════════════════ TEMAS ═══════════════════════════════ */
@@ -551,6 +576,8 @@ table.npc-table tbody td {
   <a class="nav-tab" href="mesa-danubia.html#map">Mapa</a>
   <a class="nav-tab" href="mesa-danubia.html#city">Cidade</a>
   <a class="nav-tab" href="mesa-danubia.html#dungeon">Masmorras</a>
+  <a class="nav-tab" href="mesa-danubia.html#mesa">Grid de batalha</a>
+  <a class="nav-tab" href="escudo.html">Escudo</a>
 </div>
 
 <main>
@@ -959,6 +986,19 @@ function changeFontSize(delta) {
   document.documentElement.style.setProperty('--fs-base', fontSize + 'px');
 }
 
+function updateMesaLinks() {
+  const session = window.DANUBIA_SESSION;
+  if (!session || session.role !== 'gm' || !session.room || !session.key) return;
+  const query = new URLSearchParams({ role: 'gm', room: session.room, key: session.key }).toString();
+  document.querySelectorAll('a[href^="mesa-danubia.html"]').forEach(link => {
+    const hash = link.getAttribute('href').split('#')[1] || 'map';
+    link.href = `mesa-danubia.html?${query}#${hash}`;
+  });
+  document.querySelectorAll('a[href="escudo.html"]').forEach(link => {
+    link.href = `escudo.html?${query}`;
+  });
+}
+
 // Scroll-to-top
 window.addEventListener('scroll', () => {
   document.getElementById('to-top').classList.toggle('show', window.scrollY > 400);
@@ -969,6 +1009,7 @@ populateCidadesTable();
 populateVilarejoTable();
 populateCidadesCards();
 populateVilarejoCards();
+updateMesaLinks();
 </script>
 </body>
 </html>

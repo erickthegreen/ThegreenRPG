@@ -21,8 +21,9 @@
         <button class="mode-tab active" type="button" data-mode="map">Mapa</button>
         <button class="mode-tab" type="button" data-mode="city">Cidade</button>
         <button class="mode-tab" type="button" data-mode="dungeon">Masmorras</button>
-        <button class="mode-tab" type="button" data-mode="mesa">Mesa</button>
+        <button class="mode-tab" type="button" data-mode="mesa">Grid de batalha</button>
         <a class="mode-link" href="index.html">Compendio</a>
+        <a class="mode-link" href="escudo.html">Escudo</a>
       </nav>
 
       <div class="save-status" id="saveStatus">Salvo localmente</div>
@@ -31,7 +32,7 @@
     <main class="workspace">
       <aside class="side-panel left-panel" data-panel="map">
         <section class="control-section">
-          <div class="section-title">Mapa Detalhado de Tibia</div>
+          <div class="section-title">Mapa Mundi de Danubia</div>
           <div class="button-row">
             <button type="button" id="mapFitBtn">Ajustar</button>
             <button type="button" id="mapZoomInBtn">+</button>
@@ -42,7 +43,7 @@
             <button type="button" id="mapResetBtn">Resetar</button>
           </div>
           <div class="button-row">
-            <button type="button" id="generateFantasyMapBtn">Gerar cidade estilo Tibia</button>
+            <button type="button" id="generateFantasyMapBtn">Gerar mapa mundi original</button>
             <button type="button" id="clearFantasyMapBtn">Limpar gerado</button>
           </div>
         </section>
@@ -60,25 +61,13 @@
 
         <section class="control-section">
           <div class="section-title">Escala Global</div>
-          <label class="field-label" for="mapFloor">Andar</label>
-          <select id="mapFloor">
-            <option value="0">0 - Muito alto</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7" selected>7 - Chao</option>
-            <option value="8">8 - Subsolo 1</option>
-            <option value="9">9 - Subsolo 2</option>
-            <option value="10">10 - Subsolo 3</option>
-            <option value="11">11 - Subsolo 4</option>
-            <option value="12">12 - Subsolo 5</option>
-            <option value="13">13 - Subsolo 6</option>
-            <option value="14">14 - Subsolo 7</option>
-            <option value="15">15 - Profundo</option>
+          <label class="field-label" for="mapPlane">Plano</label>
+          <select id="mapPlane">
+            <option value="world" selected>Mapa mundi original</option>
+            <option value="dungeon">Plano de masmorras</option>
+            <option value="notes">Notas cartograficas</option>
           </select>
+          <input id="mapFloor" type="hidden" value="7" />
 
           <label class="field-label" for="mapGridPx">Tiles por quadrado visual</label>
           <input id="mapGridPx" type="number" min="16" max="512" step="8" value="64" />
@@ -135,10 +124,10 @@
 
           <label class="field-label" for="mapImportProfile">Perfil de importacao</label>
           <select id="mapImportProfile">
-            <option value="tibia-auto">Tibia automatico</option>
-            <option value="tibia-dungeon">Tibia dungeon</option>
-            <option value="tibia-world">Tibia mundo</option>
-            <option value="tibia-city">Tibia cidade</option>
+            <option value="danubia-auto">Automatico Danubia</option>
+            <option value="danubia-dungeon">Masmorra por cores</option>
+            <option value="danubia-world">Mapa mundi por cores</option>
+            <option value="danubia-city">Cidade por cores</option>
             <option value="generic">Imagem generica</option>
           </select>
 
@@ -164,7 +153,6 @@
           <label class="check-row"><input id="showMapGrid" type="checkbox" checked /> Grid</label>
           <label class="check-row"><input id="showMapRoutes" type="checkbox" checked /> Rotas</label>
           <label class="check-row"><input id="showMapMarkers" type="checkbox" checked /> Marcadores</label>
-          <label class="check-row"><input id="showTibiaMarkers" type="checkbox" checked /> Marcadores TibiaMaps</label>
           <label class="check-row"><input id="showMapLabels" type="checkbox" checked /> Nomes</label>
           <label class="check-row"><input id="showMapScale" type="checkbox" checked /> Barra de escala</label>
         </section>
@@ -231,6 +219,40 @@
         </section>
 
         <section class="control-section">
+          <div class="section-title">Gerador estruturado</div>
+          <label class="field-label" for="dungeonLayout">Layout</label>
+          <select id="dungeonLayout">
+            <option value="classic">Classico conectado</option>
+            <option value="compact">Compacto</option>
+            <option value="sprawl">Ramificado</option>
+            <option value="cavern">Caverna</option>
+          </select>
+
+          <div class="grid-two">
+            <label>
+              Salas
+              <select id="dungeonRoomDensity">
+                <option value="sparse">Poucas</option>
+                <option value="normal" selected>Normal</option>
+                <option value="dense">Muitas</option>
+              </select>
+            </label>
+            <label>
+              Corredores
+              <select id="dungeonCorridorStyle">
+                <option value="straight">Retos</option>
+                <option value="errant" selected>Errantes</option>
+                <option value="labyrinth">Labirinto</option>
+              </select>
+            </label>
+          </div>
+          <label class="check-row"><input id="dungeonAddDoors" type="checkbox" checked /> Portas automaticas</label>
+          <label class="check-row"><input id="dungeonAddSecrets" type="checkbox" checked /> Segredos e tesouros</label>
+          <label class="check-row"><input id="dungeonAddStairs" type="checkbox" checked /> Escadas de entrada/saida</label>
+          <button type="button" id="generateRandomDungeonBtn">Gerar masmorra estruturada</button>
+        </section>
+
+        <section class="control-section">
           <div class="section-title">Terreno</div>
           <div class="tile-palette" id="tilePalette"></div>
           <label class="field-label" for="brushSize">Tamanho do pincel</label>
@@ -260,7 +282,7 @@
             <button type="button" id="downloadPlayerDungeonBtn">PNG Jogadores</button>
           </div>
           <div class="button-row">
-            <button type="button" id="sendDungeonMesaBtn">Enviar para Mesa</button>
+            <button type="button" id="sendDungeonMesaBtn">Enviar para Grid de batalha</button>
           </div>
         </section>
       </aside>
@@ -442,6 +464,15 @@
           <div class="source-note">A janela do jogador mostra apenas tokens visiveis e a ficha do slot escolhido.</div>
         </section>
 
+        <section class="control-section" data-gm-only>
+          <div class="section-title">Abas dos Jogadores</div>
+          <label class="check-row"><input type="checkbox" data-player-tab-toggle="map" /> Mapa</label>
+          <label class="check-row"><input type="checkbox" data-player-tab-toggle="city" /> Cidade</label>
+          <label class="check-row"><input type="checkbox" data-player-tab-toggle="dungeon" /> Masmorras</label>
+          <label class="check-row"><input type="checkbox" data-player-tab-toggle="mesa" checked /> Grid de batalha</label>
+          <div class="source-note">No modo online, jogadores so enxergam as abas marcadas aqui.</div>
+        </section>
+
         <section class="control-section">
           <div class="section-title">Grid Tatico</div>
           <div class="grid-two">
@@ -514,12 +545,120 @@
 
         <section class="control-section">
           <div class="section-title">Escudo do Mestre</div>
+          <a class="source-link shield-full-link" href="escudo.html">Abrir escudo completo em nova pagina</a>
           <button type="button" id="mesaShieldToggle">Abrir escudo</button>
+          <input id="mesaShieldSearch" class="search-input" type="search" placeholder="Buscar regra, condicao, CD..." />
           <div id="mesaShieldBody" class="gm-shield is-collapsed">
-            <div><strong>CD rapida</strong><span>10 facil, 15 media, 20 dificil, 25 muito dificil</span></div>
-            <div><strong>Cobertura</strong><span>Meia +2 CA, tres quartos +5 CA</span></div>
-            <div><strong>Viagem</strong><span>Normal 38 km/dia, rapido 48 km/dia, lento 29 km/dia</span></div>
-            <div><strong>Condicoes</strong><span>Use marcadores no token para lembrar efeitos ativos.</span></div>
+            <details open data-shield-card>
+              <summary>Fluxo de combate</summary>
+              <ul>
+                <li>Inicio: surpresa, posicoes, iniciativa, rodada 1.</li>
+                <li>Turno: movimento, acao, acao bonus, interacao simples, reacao quando disparar.</li>
+                <li>Acoes: Atacar, Conjurar, Correr, Desengajar, Esquivar, Ajudar, Esconder, Preparar, Procurar, Usar Objeto, Agarrar, Empurrar, improvisar.</li>
+                <li>Preparar: declare gatilho e resposta; usa reacao; magia preparada exige concentracao.</li>
+                <li>Movimento dificil custa o dobro; levantar de caido custa metade do deslocamento.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>CDs, testes e vantagem</summary>
+              <ul>
+                <li>CD 5 trivial, 10 facil, 15 media, 20 dificil, 25 muito dificil, 30 quase impossivel.</li>
+                <li>Vantagem/desvantagem nao acumulam; se tiver as duas, rola normal.</li>
+                <li>Teste resistido: ambos rolam; empate mantem a situacao atual.</li>
+                <li>Passiva: 10 + modificador + proficiencia, ajuste +/-5 por vantagem/desvantagem situacional.</li>
+                <li>Improviso: use atributo + pericia se fizer sentido, sem parar a cena para achar regra perfeita.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>Condicoes</summary>
+              <ul>
+                <li>Agarrado: deslocamento 0; termina se quem agarrou ficar incapacitado ou alvo sair do alcance.</li>
+                <li>Amedrontado: desvantagem enquanto fonte estiver visivel; nao se aproxima voluntariamente.</li>
+                <li>Atordoado: incapacitado, falha em For/Dex, ataques contra tem vantagem.</li>
+                <li>Caido: ataques corpo a corpo adjacentes tem vantagem; ataques distantes tem desvantagem.</li>
+                <li>Cego: falha em testes que dependem de visao; ataques contra tem vantagem; ataques dele tem desvantagem.</li>
+                <li>Envenenado: desvantagem em ataques e testes.</li>
+                <li>Incapacitado: nao faz acoes nem reacoes.</li>
+                <li>Paralisado/Inconsciente: ataques corpo a corpo adjacentes que acertam viram critico.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>Dano, morte e descanso</summary>
+              <ul>
+                <li>0 PV: inconsciente; teste contra morte no inicio do turno. 3 sucessos estabiliza, 3 falhas morre.</li>
+                <li>Dano em 0 PV: uma falha; critico ou ataque corpo a corpo adjacente costuma causar duas falhas.</li>
+                <li>Morte instantanea: dano restante igual ou maior que PV maximo.</li>
+                <li>Descanso curto: gastar dados de vida. Descanso longo: recupera PV e parte dos dados de vida.</li>
+                <li>Dano improvisado: 1d10 leve, 2d10 perigoso, 4d10 severo, 10d10 mortal para tier baixo.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>Magia e concentracao</summary>
+              <ul>
+                <li>Concentracao quebra se conjurar outra magia de concentracao, ficar incapacitado ou falhar no teste.</li>
+                <li>Teste de concentracao: CD 10 ou metade do dano, o que for maior.</li>
+                <li>Magia com acao bonus: no mesmo turno, outra magia com acao so pode ser truque de tempo 1 acao.</li>
+                <li>Componentes: silencio bloqueia verbal; maos ocupadas podem bloquear somatico/material.</li>
+                <li>Area: escolha origem, confirme cobertura, aplique resistencia/vulnerabilidade depois do teste.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>Cobertura, luz e furtividade</summary>
+              <ul>
+                <li>Meia cobertura: +2 CA e Dex. Tres quartos: +5 CA e Dex. Cobertura total: nao pode ser alvo direto.</li>
+                <li>Escuridao leve: desvantagem em Percepcao visual. Escuridao pesada: efetivamente cego para ver ali.</li>
+                <li>Esconder: precisa condicao plausivel; resultado disputa com Percepcao passiva ou teste ativo.</li>
+                <li>Invisivel ainda faz ruido e deixa pistas; atacar revela posicao se a ficcao permitir.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>Viagem e exploracao</summary>
+              <ul>
+                <li>Ritmo lento 29 km/dia, normal 38 km/dia, rapido 48 km/dia.</li>
+                <li>Marcha forcada: depois de 8 horas, teste de Con por hora ou exaustao.</li>
+                <li>Navegacao: CD 10 estrada, 15 ermo, 20 clima ruim/selva/montanha, 25 magia/territorio hostil.</li>
+                <li>Encontro aleatorio: 1 em d6 por periodo perigoso; use pressagio antes do combate direto.</li>
+                <li>Relogio de perigo: 0 seguro, 1 pista, 2 custo, 3 encontro, 4 complicacao grande.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>Encontros e dificuldade</summary>
+              <ul>
+                <li>Facil: drena pouco recurso. Medio: exige atencao. Dificil: risco real. Mortal: pode derrubar personagem.</li>
+                <li>Economia de acoes importa mais que CR: muitos inimigos fracos podem ser mais letais que um forte.</li>
+                <li>Combate bom tem objetivo: proteger, fugir, interromper ritual, segurar ponte, salvar refem.</li>
+                <li>Reforcos: anuncie com som, sombra ou rodada marcada antes de colocar no grid.</li>
+                <li>Monstro inteligente recua, negocia, flanqueia, mira curandeiro ou usa terreno.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>Recompensas e tesouro</summary>
+              <ul>
+                <li>Baixo nivel: consumiveis, mapas, favores, informacao, moedas modestas.</li>
+                <li>Medio nivel: item incomum/raro contextual, propriedades, aliados, acesso politico.</li>
+                <li>Tesouro bom responde: de quem era, por que estava ali, quem vai cobrar depois.</li>
+                <li>Item magico forte pede custo: requisito, risco, faccao interessada ou consequencia narrativa.</li>
+              </ul>
+            </details>
+
+            <details data-shield-card>
+              <summary>Improviso de mestre</summary>
+              <ul>
+                <li>Quando travar: diga o risco, escolha CD, role aberto se for tenso, avance a cena.</li>
+                <li>Falha interessante: sucesso com custo, dano, tempo perdido, recurso gasto, alarme, separacao.</li>
+                <li>NPC rapido: desejo, medo, recurso, segredo, voz.</li>
+                <li>Investigacao: pista obrigatoria nunca fica atras de uma unica rolagem.</li>
+                <li>Regra duvidosa: decida agora, anote, revise depois da sessao.</li>
+              </ul>
+            </details>
           </div>
         </section>
       </aside>
@@ -537,7 +676,7 @@
         <div class="canvas-frame mesa-frame" id="mesaFrame">
           <div class="mesa-board-shell">
             <div id="mesaPlayerSlotPicker" class="mesa-player-picker is-hidden"></div>
-            <div id="mesaGridViewport" class="mesa-grid-viewport" role="application" aria-label="Grid tatico da mesa">
+            <div id="mesaGridViewport" class="mesa-grid-viewport" role="application" aria-label="Grid de batalha">
               <div id="mesaGrid" class="mesa-grid"></div>
             </div>
           </div>
@@ -577,9 +716,9 @@
         <section class="info-section asset-strip" data-info="map">
           <div class="section-title">Referencias</div>
           <div class="source-note">
-            O mapa detalhado usa os PNGs publicos do projeto TibiaMaps. O andar 7 e o chao, o mesmo ponto do link que voce mandou para Thais.
+            O mapa principal agora e original de Danubia. Os marcadores e rotas usam as cidades e vilarejos do compendio; recortes podem virar masmorras sem depender de qualquer camada externa.
           </div>
-          <a class="source-link" href="https://tibiamaps.github.io/tibia-map-data/floor-07-map.png" target="_blank" rel="noreferrer">Abrir PNG do andar 7</a>
+          <a class="source-link" href="escudo.html">Abrir escudo do mestre</a>
         </section>
 
         <section class="info-section is-hidden" data-info="dungeon">
@@ -671,7 +810,7 @@
         </section>
 
         <section class="info-section is-hidden" data-info="mesa">
-          <div class="section-title">Mesa</div>
+          <div class="section-title">Grid de batalha</div>
           <div class="metric-grid">
             <div>
               <span>Grid</span>
@@ -782,8 +921,9 @@
 
   <input id="mesaSpriteUpload" type="file" accept="image/png,image/jpeg,image/webp" hidden />
 
-  <script src="mesa-danubia.js?v=mesa-7"></script>
-  <script src="city-sprites.js?v=mesa-7"></script>
-  <script src="mesa-combate.js?v=mesa-7"></script>
+  <script src="mesa-danubia.js?v=mesa-11"></script>
+  <script src="city-sprites.js?v=mesa-11"></script>
+  <script src="mesa-combate.js?v=mesa-11"></script>
+  <script src="danubia-online.js?v=mesa-11"></script>
 </body>
 </html>

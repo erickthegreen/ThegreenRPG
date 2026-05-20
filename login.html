@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Danubia | Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #11100c;
+      --panel: #2b261d;
+      --panel-2: #342d23;
+      --border: rgba(224, 182, 89, 0.3);
+      --gold: #e2b95c;
+      --text: #f4ead0;
+      --muted: #cbb98d;
+      --danger: #c9553d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 20% 12%, rgba(143, 58, 35, 0.24), transparent 34%),
+        radial-gradient(circle at 80% 0%, rgba(224, 185, 92, 0.14), transparent 30%),
+        linear-gradient(145deg, #0b0b08, var(--bg));
+      color: var(--text);
+      font-family: "Crimson Pro", Georgia, serif;
+      padding: 24px;
+    }
+
+    .login-card {
+      width: min(440px, 100%);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(52, 45, 35, 0.96), rgba(30, 27, 22, 0.98));
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      padding: 28px;
+    }
+
+    .brand {
+      font-family: Cinzel, Georgia, serif;
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: 0;
+      color: var(--gold);
+      margin: 0;
+    }
+
+    .subtitle {
+      margin: 4px 0 24px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid rgba(224, 182, 89, 0.22);
+      border-radius: 6px;
+      background: #15120f;
+      color: var(--text);
+      font: 700 17px "Crimson Pro", Georgia, serif;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(224, 182, 89, 0.72);
+      box-shadow: 0 0 0 3px rgba(224, 182, 89, 0.16);
+    }
+
+    button {
+      width: 100%;
+      min-height: 46px;
+      margin-top: 22px;
+      border: 1px solid rgba(255, 218, 130, 0.5);
+      border-radius: 7px;
+      background: linear-gradient(180deg, #b84937, #8f2f28);
+      color: #fff5d8;
+      font: 800 17px Cinzel, Georgia, serif;
+      cursor: pointer;
+    }
+
+    .message {
+      min-height: 24px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .message.error {
+      color: #ffb0a0;
+    }
+
+    .note {
+      margin-top: 22px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+  <form class="login-card" id="loginForm">
+    <h1 class="brand">Danubia</h1>
+    <p class="subtitle">Mesa online de campanha</p>
+
+    <label>
+      Login
+      <input id="username" name="username" autocomplete="username" required />
+    </label>
+
+    <label>
+      Senha
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+    </label>
+
+    <label>
+      Sala
+      <input id="room" name="room" value="danubia" autocomplete="off" required />
+    </label>
+
+    <button type="submit">Entrar</button>
+    <p class="message" id="message">Use a conta de mestre ou a conta de jogador.</p>
+    <p class="note">O mestre controla todas as abas. Jogadores entram na mesa online e editam apenas a propria ficha.</p>
+  </form>
+
+  <script>
+    const SESSION_KEY = "danubia-online-session";
+    const form = document.querySelector("#loginForm");
+    const message = document.querySelector("#message");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      message.className = "message";
+      message.textContent = "Entrando...";
+      const payload = Object.fromEntries(new FormData(form));
+      try {
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Nao foi possivel entrar.");
+        if (data.session) {
+          localStorage.setItem(SESSION_KEY, JSON.stringify(data.session));
+        }
+        location.href = data.redirect;
+      } catch (error) {
+        message.className = "message error";
+        message.textContent = error.message || "Erro ao entrar.";
+      }
+    });
+  </script>
+</body>
+</html>

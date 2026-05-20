@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Danubia | Escudo do Mestre</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #171411;
+      --panel: #27231e;
+      --panel-2: #332e27;
+      --paper: #eee2c4;
+      --muted: #c4b58e;
+      --gold: #d6b35a;
+      --red: #9f332c;
+      --blue: #4e7388;
+      --green: #5f7d52;
+      --line: rgba(238, 226, 196, 0.16);
+      --shadow: rgba(0, 0, 0, 0.46);
+    }
+
+    body[data-theme="paper"] {
+      --ink: #21180f;
+      --panel: #d8c8a8;
+      --panel-2: #eadfca;
+      --paper: #2a2117;
+      --muted: #594a32;
+      --gold: #7a5420;
+      --red: #8f3428;
+      --blue: #436f7d;
+      --green: #516c44;
+      --line: rgba(42, 33, 23, 0.18);
+      --shadow: rgba(45, 34, 18, 0.22);
+    }
+
+    body[data-theme="slate"] {
+      --ink: #11151a;
+      --panel: #20252b;
+      --panel-2: #2d343b;
+      --paper: #eef0e5;
+      --muted: #b7c0b7;
+      --gold: #d0b56d;
+      --red: #a64a3c;
+      --blue: #6e9eb1;
+      --green: #78946d;
+      --line: rgba(238, 240, 229, 0.17);
+      --shadow: rgba(0, 0, 0, 0.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--paper);
+      font-family: "Crimson Pro", Georgia, serif;
+      background:
+        linear-gradient(135deg, rgba(17, 15, 13, 0.96), rgba(26, 28, 24, 0.96)),
+        radial-gradient(circle at 18% 12%, rgba(214, 179, 90, 0.16), transparent 32%),
+        radial-gradient(circle at 84% 18%, rgba(78, 115, 136, 0.18), transparent 30%);
+    }
+
+    body[data-theme="paper"] {
+      background:
+        linear-gradient(135deg, rgba(221, 207, 174, 0.96), rgba(232, 223, 201, 0.96)),
+        radial-gradient(circle at 20% 12%, rgba(122, 84, 32, 0.12), transparent 32%);
+    }
+
+    body[data-theme="slate"] {
+      background:
+        linear-gradient(135deg, rgba(14, 17, 20, 0.98), rgba(31, 38, 42, 0.98)),
+        radial-gradient(circle at 82% 12%, rgba(110, 158, 177, 0.16), transparent 30%);
+    }
+
+    a, button, input, textarea { font: inherit; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: minmax(170px, 260px) 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(214, 179, 90, 0.34);
+      background: rgba(18, 16, 13, 0.96);
+      box-shadow: 0 14px 36px var(--shadow);
+    }
+
+    .brand {
+      display: grid;
+      gap: 2px;
+    }
+
+    .brand strong {
+      color: var(--gold);
+      font: 900 1.35rem/1 "Cinzel", Georgia, serif;
+      text-transform: uppercase;
+    }
+
+    .brand span,
+    .hint {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .theme-switch {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .nav a,
+    button {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(214, 179, 90, 0.38);
+      border-radius: 999px;
+      color: var(--paper);
+      background: linear-gradient(180deg, #473a27, #2e271f);
+      text-decoration: none;
+      padding: 0 14px;
+      cursor: pointer;
+    }
+
+    .nav a:hover,
+    button:hover {
+      border-color: rgba(214, 179, 90, 0.78);
+    }
+
+    .layout {
+      width: min(1580px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 18px 0 42px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(51, 46, 39, 0.96), rgba(35, 31, 27, 0.96));
+      box-shadow: 0 18px 46px var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-inner {
+      padding: 16px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      color: var(--paper);
+      font-family: "Cinzel", Georgia, serif;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 4.8rem);
+      line-height: 0.95;
+    }
+
+    h2 {
+      color: var(--gold);
+      font-size: 1rem;
+      text-transform: uppercase;
+    }
+
+    h3 {
+      color: var(--paper);
+      font-size: 1rem;
+    }
+
+    .search-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .shield-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .shield-tabs button[aria-selected="true"],
+    .theme-switch button[aria-pressed="true"] {
+      border-color: rgba(214, 179, 90, 0.92);
+      background: linear-gradient(180deg, #a13d33, #74281f);
+      color: #fff5d7;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 1px solid rgba(238, 226, 196, 0.22);
+      border-radius: 7px;
+      color: var(--paper);
+      background: rgba(12, 10, 8, 0.55);
+      padding: 9px 11px;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: rgba(214, 179, 90, 0.82);
+      box-shadow: 0 0 0 3px rgba(214, 179, 90, 0.14);
+    }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 86px;
+      display: grid;
+      gap: 4px;
+      align-content: center;
+      border: 1px solid rgba(238, 226, 196, 0.13);
+      border-radius: 7px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .metric strong {
+      color: var(--paper);
+      font-size: 1.1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .card {
+      grid-column: span 4;
+      border: 1px solid rgba(238, 226, 196, 0.13);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+      overflow: hidden;
+    }
+
+    .card.wide { grid-column: span 8; }
+    .card.full { grid-column: 1 / -1; }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+      padding: 12px 13px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.12);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border: 1px solid rgba(214, 179, 90, 0.32);
+      border-radius: 999px;
+      color: var(--gold);
+      padding: 0 8px;
+      white-space: nowrap;
+      font-size: 0.82rem;
+    }
+
+    .card-body {
+      padding: 12px 13px 14px;
+      color: var(--muted);
+    }
+
+    ul, ol {
+      margin: 8px 0 0;
+      padding-left: 19px;
+    }
+
+    li { margin: 4px 0; }
+
+    .rules {
+      display: grid;
+      gap: 8px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      padding: 8px;
+      border: 1px solid rgba(238, 226, 196, 0.11);
+      border-radius: 7px;
+      background: rgba(0, 0, 0, 0.11);
+    }
+
+    .row strong { color: var(--paper); }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    .table th,
+    .table td {
+      border-bottom: 1px solid rgba(238, 226, 196, 0.12);
+      padding: 7px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .table th {
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    .rollbox {
+      min-height: 86px;
+      display: grid;
+      gap: 8px;
+      align-content: center;
+      border: 1px dashed rgba(214, 179, 90, 0.34);
+      border-radius: 7px;
+      padding: 12px;
+      color: var(--paper);
+      background: rgba(0, 0, 0, 0.16);
+    }
+
+    .notes {
+      min-height: 210px;
+      resize: vertical;
+    }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 1180px) {
+      .hero { grid-template-columns: 1fr; }
+      .quick-grid { grid-template-columns: repeat(2, 1fr); }
+      .shield-tabs { grid-template-columns: repeat(2, 1fr); }
+      .card, .card.wide { grid-column: span 6; }
+    }
+
+    @media (max-width: 760px) {
+      .topbar { grid-template-columns: 1fr; }
+      .search-row { grid-template-columns: 1fr; }
+      .quick-grid { grid-template-columns: 1fr; }
+      .shield-tabs { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .card, .card.wide, .card.full { grid-column: 1; }
+    }
+  </style>
+  <script>
+    (function guard() {
+      const params = new URLSearchParams(location.search);
+      if (params.get("role") === "gm" && params.get("room") && params.get("key")) return;
+      try {
+        const session = JSON.parse(localStorage.getItem("danubia-online-session") || "null");
+        if (session && session.role === "gm" && session.room && session.key) {
+          const query = new URLSearchParams({ role: "gm", room: session.room, key: session.key });
+          location.replace(`/escudo.html?${query.toString()}`);
+          return;
+        }
+      } catch {}
+      if (!["localhost", "127.0.0.1", ""].includes(location.hostname)) location.replace("/login.html");
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong>Danubia</strong>
+      <span>Escudo do Mestre 5e</span>
+    </div>
+    <nav class="nav">
+      <a href="mesa-danubia.html#map">Mapa</a>
+      <a href="mesa-danubia.html#city">Cidade</a>
+      <a href="mesa-danubia.html#dungeon">Masmorras</a>
+      <a href="mesa-danubia.html#mesa">Grid de batalha</a>
+      <a href="index.html">Compendio</a>
+    </nav>
+    <div class="theme-switch" aria-label="Tema do escudo">
+      <button type="button" data-theme-choice="dark" aria-pressed="true">Escuro</button>
+      <button type="button" data-theme-choice="paper" aria-pressed="false">Papel</button>
+      <button type="button" data-theme-choice="slate" aria-pressed="false">Cinza</button>
+      <button type="button" id="printBtn">Imprimir</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="hero">
+      <div class="panel">
+        <div class="panel-inner">
+          <h1>Escudo do Mestre</h1>
+          <p class="hint">Busca rapida, regras de mesa, improviso, encontros, exploracao, tesouro, clima, Danubia, checklists de sessao e referencias do escudo impresso.</p>
+          <div class="search-row">
+            <input id="search" type="search" placeholder="Buscar: condicao, concentracao, CD, viagem, tesouro, NPC..." />
+            <button type="button" data-filter="combat">Combate</button>
+            <button type="button" data-filter="">Tudo</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-inner quick-grid">
+          <div class="metric"><span>CD comum</span><strong>10 / 15 / 20</strong></div>
+          <div class="metric"><span>Movimento grid</span><strong>1 quadrado = 1,5 m</strong></div>
+          <div class="metric"><span>Viagem normal</span><strong>38-40 km/dia</strong></div>
+          <div class="metric"><span>Concentracao</span><strong>CD 10 ou metade</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="shield-tabs" role="tablist" aria-label="Abas do escudo">
+      <button type="button" data-shield-tab="combat" aria-selected="true">Combate</button>
+      <button type="button" data-shield-tab="exploration" aria-selected="false">Exploracao</button>
+      <button type="button" data-shield-tab="social" aria-selected="false">Social</button>
+      <button type="button" data-shield-tab="master" aria-selected="false">Mestre</button>
+    </section>
+
+    <section class="grid" id="cards">
+      <article class="card wide" data-card data-tags="combat combate iniciativa turno acao">
+        <div class="card-head"><h2>Fluxo de Combate</h2><span class="tag">Combate</span></div>
+        <div class="card-body">
+          <ol>
+            <li>Confirme surpresa, posicoes, luz, cobertura e objetivos.</li>
+            <li>Role iniciativa, agrupe inimigos iguais se acelerar a cena.</li>
+            <li>No turno: movimento, acao, acao bonus, interacao simples, reacao quando disparar.</li>
+            <li>Fim de turno: salvaguardas repetidas, dano continuo, efeitos que expiram.</li>
+            <li>Fim da rodada: reforcos, relogios de perigo, moral dos inimigos.</li>
+          </ol>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="cd teste pericia vantagem desvantagem">
+        <div class="card-head"><h2>CDs e Testes</h2><span class="tag">Mesa</span></div>
+        <div class="card-body">
+          <div class="rules">
+            <div class="row"><strong>5</strong><span>Trivial sob pressao.</span></div>
+            <div class="row"><strong>10</strong><span>Facil, pessoa treinada costuma passar.</span></div>
+            <div class="row"><strong>15</strong><span>Media, bom padrao para risco normal.</span></div>
+            <div class="row"><strong>20</strong><span>Dificil, exige talento, preparo ou sorte.</span></div>
+            <div class="row"><strong>25</strong><span>Muito dificil, feito heroico.</span></div>
+            <div class="row"><strong>30</strong><span>Quase impossivel.</span></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="condicoes agarrado caido cego paralisado envenenado">
+        <div class="card-head"><h2>Condicoes Essenciais</h2><span class="tag">Referencia</span></div>
+        <div class="card-body">
+          <table class="table">
+            <tr><th>Condicao</th><th>Efeito de mesa</th></tr>
+            <tr><td>Caido</td><td>Corpo a corpo adjacente com vantagem; ataques distantes contra ele com desvantagem.</td></tr>
+            <tr><td>Agarrado</td><td>Deslocamento 0; termina se o agarrador incapacitar ou o alvo sair do alcance.</td></tr>
+            <tr><td>Cego</td><td>Falha em testes de visao; ataques dele com desvantagem; ataques contra ele com vantagem.</td></tr>
+            <tr><td>Paralisado</td><td>Incapacitado; ataques adjacentes que acertam viram critico.</td></tr>
+            <tr><td>Envenenado</td><td>Desvantagem em ataques e testes de atributo.</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="magia concentracao componentes area conjurar">
+        <div class="card-head"><h2>Magia</h2><span class="tag">Regras</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Concentracao: CD 10 ou metade do dano recebido, o que for maior.</li>
+            <li>Uma nova magia de concentracao encerra a anterior.</li>
+            <li>Magia com acao bonus limita outra magia do turno a truque com tempo de 1 acao.</li>
+            <li>Silencio bloqueia componente verbal; maos ocupadas podem bloquear somatico/material.</li>
+            <li>Area: defina origem, veja cobertura, role salvaguarda, aplique resistencia depois.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="dano morte descanso cura pv">
+        <div class="card-head"><h2>Dano, Morte e Descanso</h2><span class="tag">Sobrevivencia</span></div>
+        <div class="card-body">
+          <ul>
+            <li>0 PV: inconsciente; teste contra morte no inicio do turno.</li>
+            <li>3 sucessos estabilizam; 3 falhas matam.</li>
+            <li>Dano em 0 PV causa falha; critico costuma causar duas.</li>
+            <li>Morte instantanea: dano restante igual ou maior que PV maximo.</li>
+            <li>Descanso curto gasta dados de vida; longo recupera PV e parte dos dados.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="cobertura luz furtividade invisivel percepcao">
+        <div class="card-head"><h2>Cobertura, Luz e Furtividade</h2><span class="tag">Tatico</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Meia cobertura: +2 CA e salvaguarda de Destreza.</li>
+            <li>Tres quartos: +5 CA e salvaguarda de Destreza.</li>
+            <li>Cobertura total: nao pode ser alvo direto.</li>
+            <li>Escuridao leve: desvantagem em Percepcao visual.</li>
+            <li>Invisivel ainda faz ruido e deixa rastros; escondido exige ficcao plausivel.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="exploracao viagem marcha clima terreno">
+        <div class="card-head"><h2>Exploracao e Viagem</h2><span class="tag">Mapa</span></div>
+        <div class="card-body">
+          <table class="table">
+            <tr><th>Ritmo</th><th>Dia</th><th>Uso</th></tr>
+            <tr><td>Lento</td><td>29 km</td><td>Permite furtividade e busca cuidadosa.</td></tr>
+            <tr><td>Normal</td><td>38 km</td><td>Padrao da campanha.</td></tr>
+            <tr><td>Rapido</td><td>48 km</td><td>-5 em Percepcao passiva e mais risco.</td></tr>
+            <tr><td>Marcha forcada</td><td>+ hora</td><td>Teste de Con por hora ou exaustao.</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="social npc reacao conversa intriga">
+        <div class="card-head"><h2>Social e NPCs</h2><span class="tag">Interpretacao</span></div>
+        <div class="card-body">
+          <ul>
+            <li>NPC rapido: desejo, medo, recurso, segredo, voz.</li>
+            <li>Persuasao muda disposicao, nao controla mente.</li>
+            <li>Intimidacao cobra preco: obediencia agora, ressentimento depois.</li>
+            <li>Mentira boa precisa detalhe verificavel e risco se descoberta.</li>
+            <li>Use reacoes: hostil, desconfiado, neutro, amigavel, aliado.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card wide" data-card data-tags="encontro dificuldade cr monstro combate objetivo">
+        <div class="card-head"><h2>Construir Encontros</h2><span class="tag">Design</span></div>
+        <div class="card-body">
+          <div class="rules">
+            <div class="row"><strong>Objetivo</strong><span>Matar todos e fraco. Prefira segurar ponte, interromper ritual, salvar refem, fugir, capturar, destruir foco.</span></div>
+            <div class="row"><strong>Terreno</strong><span>Inclua altura, cobertura, agua, lava, escuridao, portas, gargalos e caminho alternativo.</span></div>
+            <div class="row"><strong>Acoes</strong><span>Economia de acoes pesa mais que CR. Muitos inimigos simples podem ficar letais.</span></div>
+            <div class="row"><strong>Telegrame</strong><span>Antes de reforcos ou poder forte, use som, sombra, tremor, contagem ou aviso visual.</span></div>
+            <div class="row"><strong>Moral</strong><span>Inimigos fogem, negociam ou rendem quando perdem lider, metade do grupo ou objetivo.</span></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="tesouro recompensa ouro item magico">
+        <div class="card-head"><h2>Tesouro e Recompensas</h2><span class="tag">Economia</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Baixo nivel: consumiveis, mapas, favores, informacao, moedas modestas.</li>
+            <li>Medio nivel: item incomum/raro contextual, aliados, propriedade, acesso politico.</li>
+            <li>Tesouro deve responder: de quem era, por que ficou ali, quem vai cobrar depois.</li>
+            <li>Item forte pede custo: requisito, faccao interessada, risco ou consequencia.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="danubia cidades thais guilda filhos de thais faccoes">
+        <div class="card-head"><h2>Danubia em Mesa</h2><span class="tag">Cenario</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Thais: capital portuaria, poder real, guildas, catacumbas e controle de artefatos.</li>
+            <li>Drakenthal e Bhalrock: forjas, vulcoes, metal raro e risco subterraneo.</li>
+            <li>Ossebra, Variel e Faelcross: florestas, elfos, mapas antigos e tensao com humanos.</li>
+            <li>Solavar e desertos: agua, caravanas, miragens e ruinas solares.</li>
+            <li>Portos: contrabando, mapas falsos, monstros marinhos e faccoes mercantes.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="clima ambiente perigo exaustao">
+        <div class="card-head"><h2>Clima e Ambiente</h2><span class="tag">Pressao</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Calor/frio extremo: teste de Con por hora ou exaustao sem protecao.</li>
+            <li>Chuva forte: visao reduzida, terreno dificil, rastros apagados.</li>
+            <li>Nevoa: linha de visao curta, som importa mais que visao.</li>
+            <li>Vento forte: ataques a distancia piores, voo arriscado.</li>
+            <li>Ambiente bom sempre altera decisao, nao apenas descricao.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card wide" data-card data-tags="pdf escudo luz visao lanterna tocha vela escuridao clima exaustao">
+        <div class="card-head"><h2>Luz, Visao e Clima</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <table class="table">
+            <tr><th>Fonte</th><th>Luz plena</th><th>Penumbra</th></tr>
+            <tr><td>Vela</td><td>1,5 m</td><td>+1,5 m</td></tr>
+            <tr><td>Lampada</td><td>4,5 m</td><td>+4,5 m</td></tr>
+            <tr><td>Tocha</td><td>6 m</td><td>+6 m</td></tr>
+            <tr><td>Lanterna coberta</td><td>9 m</td><td>+9 m</td></tr>
+            <tr><td>Lanterna furta-fogo</td><td>Cone 18 m</td><td>+18 m</td></tr>
+          </table>
+          <ul>
+            <li>Escuridao leve: penumbra, nevoa leve, folhagem moderada, crepusculo, aurora ou lua cheia; desvantagem em Percepcao visual.</li>
+            <li>Escuridao densa: noite sem lua, nevoa densa, folhagem densa ou breu; trate como cego para efeitos de visao.</li>
+            <li>Visao no escuro: na escuridao leve enxerga sem cores, como tons de cinza.</li>
+            <li>Precipitacao pesada: aplica escuridao leve e desvantagem em Percepcao por audicao.</li>
+            <li>Vento forte: desvantagem em ataques a distancia e Percepcao por audicao; voadores precisam pousar ou caem no fim do turno.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="pdf escudo exaustao fome sede calor frio descanso">
+        <div class="card-head"><h2>Exaustao, Fome e Sede</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <table class="table">
+            <tr><th>Nivel</th><th>Efeito</th></tr>
+            <tr><td>1</td><td>Desvantagem em testes de habilidade.</td></tr>
+            <tr><td>2</td><td>Deslocamento pela metade.</td></tr>
+            <tr><td>3</td><td>Desvantagem em ataques e salvaguardas.</td></tr>
+            <tr><td>4</td><td>PV maximo pela metade.</td></tr>
+            <tr><td>5</td><td>Deslocamento 0.</td></tr>
+            <tr><td>6</td><td>Morte.</td></tr>
+          </table>
+          <ul>
+            <li>Frio extremo: salvaguarda de Con CD 10 por hora ou 1 nivel de exaustao sem protecao adequada.</li>
+            <li>Calor extremo: salvaguarda de Con CD 5, aumentando +1 por hora sem agua; armadura media/pesada pode dar desvantagem.</li>
+            <li>Fome: 0,5 kg de comida por dia; apos 3 + modificador de Con dias, ganha exaustao diaria.</li>
+            <li>Sede: cerca de 3 litros por dia, mais em calor; sem agua, exaustao diaria.</li>
+            <li>Descanso longo com comida e agua reduz 1 nivel de exaustao.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card wide" data-card data-tags="pdf escudo rastrear viagem ritmo forragear navegar mapa sobrevivencia percepcao">
+        <div class="card-head"><h2>Viagem, Rastreio e Atividades</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <table class="table">
+            <tr><th>Ritmo</th><th>Hora</th><th>Dia</th><th>Efeito</th></tr>
+            <tr><td>Rapido</td><td>6,5 km</td><td>50 km</td><td>-5 em Percepcao passiva.</td></tr>
+            <tr><td>Normal</td><td>5 km</td><td>40 km</td><td>Sem ajuste.</td></tr>
+            <tr><td>Lento</td><td>3 km</td><td>30 km</td><td>Permite furtividade.</td></tr>
+            <tr><td>Terreno dificil</td><td colspan="3">Metade da velocidade.</td></tr>
+          </table>
+          <table class="table">
+            <tr><th>Rastreio</th><th>CD</th><th>Modificador comum</th></tr>
+            <tr><td>Solo macio, neve ou lama</td><td>10</td><td>Trilha clara.</td></tr>
+            <tr><td>Terra ou grama</td><td>15</td><td>Padrao.</td></tr>
+            <tr><td>Rocha solida</td><td>20</td><td>Difícil de ler.</td></tr>
+            <tr><td>Por dia decorrido</td><td>+5</td><td>Soma na CD.</td></tr>
+            <tr><td>Sangue ou marca evidente</td><td>-5</td><td>Reduz a CD.</td></tr>
+          </table>
+          <ul>
+            <li>Falha ao rastrear: 1 hora para reencontrar ao ar livre ou 10 minutos em masmorra.</li>
+            <li>Navegar: Sobrevivencia, +5 em ritmo lento, -5 em ritmo rapido; mapa, sol ou estrelas podem dar vantagem.</li>
+            <li>Forragear: Sobrevivencia; em sucesso, comida e agua conforme terreno e decisao do mestre.</li>
+            <li>Marcha forcada: acima de 8 horas, salvaguarda de Con CD 10 +1 por hora adicional ou exaustao.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="pdf escudo tendencia social carisma reacao amigavel indiferente hostil">
+        <div class="card-head"><h2>Social, Tendencia e Reacao</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <ul>
+            <li>LB: faz o correto pela sociedade; NB: ajuda quem precisa; CB: segue a consciencia.</li>
+            <li>LN: lei, tradicao ou codigo; N: decide pelo momento; CN: liberdade e capricho.</li>
+            <li>LM: toma o que quer sob codigo; NM: faz o que puder para se livrar; CM: violencia e ganancia.</li>
+            <li>Conversacao: primeiro mude atitude pela ficcao; depois peca teste de Carisma se houver pedido, ordem ou sugestao.</li>
+            <li>Amigavel CD 10 aceita riscos pequenos; CD 20 aceita risco significativo.</li>
+            <li>Indiferente CD 10 ajuda sem risco; CD 20 aceita risco pequeno.</li>
+            <li>Hostil CD 10 para de atrapalhar; CD 20 faz algo sem risco.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="pdf escudo bens servicos pousada comida mercenario mensageiro navio pedágio carruagem">
+        <div class="card-head"><h2>Bens e Servicos Rapidos</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <table class="table">
+            <tr><th>Item</th><th>Preco</th></tr>
+            <tr><td>Refeicao miseravel / pobre / modesta</td><td>3 pc / 6 pc / 3 pp por dia</td></tr>
+            <tr><td>Refeicao confortavel / rica / aristocratica</td><td>5 pp / 8 pp / 2 po por dia</td></tr>
+            <tr><td>Estadia miseravel / pobre / modesta</td><td>7 pc / 1 pp / 5 pp por dia</td></tr>
+            <tr><td>Estadia confortavel / rica / aristocratica</td><td>8 pp / 2 po / 4 po por dia</td></tr>
+            <tr><td>Carruagem entre cidades / cidade</td><td>3 pc por km / 1 pc</td></tr>
+            <tr><td>Mercenario treinado / novato</td><td>2 po / 2 pp por dia</td></tr>
+            <tr><td>Mensageiro / navio / pedagio</td><td>2 pc por km / 1 pp por km / 1 pc</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="card wide" data-card data-tags="pdf escudo perseguicao disparada oportunidade furtividade escapatória complicacoes">
+        <div class="card-head"><h2>Perseguicao</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Determine distancia inicial, role iniciativa e conduza como combate.</li>
+            <li>Disparada livre: 3 + modificador de Con vezes; usos extras pedem Con CD 10 ou 1 exaustao de perseguicao.</li>
+            <li>Alvos perseguidos ainda podem sofrer ataques de oportunidade.</li>
+            <li>Fim da rodada: se o fugitivo saiu da vista, teste Furtividade contra Percepcao passiva do perseguidor.</li>
+          </ul>
+          <table class="table">
+            <tr><th>Escapatória</th><th>Ajuste</th></tr>
+            <tr><td>Muitas coisas para se esconder ou area cheia/barulhenta.</td><td>Vantagem.</td></tr>
+            <tr><td>Poucas coberturas, area quieta/vazia ou perseguidor proficiente em Sobrevivencia.</td><td>Desvantagem.</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="card wide" data-card data-tags="pdf escudo movimento agarrar encontrão montar cobertura distancia terreno dificil">
+        <div class="card-head"><h2>Movimento, Cobertura e Manobras</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <table class="table">
+            <tr><th>Situacao</th><th>Regra rapida</th></tr>
+            <tr><td>Longo alcance ou inimigo a 1,5 m no ataque a distancia</td><td>Desvantagem.</td></tr>
+            <tr><td>Meia cobertura / tres quartos</td><td>+2 / +5 na CA e salvaguarda de Destreza.</td></tr>
+            <tr><td>Deitar</td><td>Sem custo.</td></tr>
+            <tr><td>Levantar, montar ou desmontar</td><td>Metade do deslocamento.</td></tr>
+            <tr><td>Rastejar, escalar, nadar ou terreno dificil</td><td>Dobro do custo.</td></tr>
+            <tr><td>Agarrar ou escapar</td><td>Atletismo contra Atletismo ou Acrobacia.</td></tr>
+            <tr><td>Mover criatura agarrada</td><td>Metade do deslocamento, salvo alvo muito menor.</td></tr>
+            <tr><td>Encontrão</td><td>Atletismo contra Atletismo ou Acrobacia; derruba ou empurra 1,5 m.</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="pdf escudo montaria cavalo burro poney guerra deslocamento">
+        <div class="card-head"><h2>Montaria</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Montaria controlada usa sua iniciativa e pode Esquivar, Disparar ou Desengajar.</li>
+            <li>Montaria independente tem iniciativa propria.</li>
+            <li>Ataque de oportunidade pode mirar cavaleiro ou montaria.</li>
+            <li>Montaria derrubada: reacao para desmontar; sem isso, cavaleiro cai a 1,5 m.</li>
+            <li>Cavaleiro movido contra vontade: salvaguarda de Des CD 10 ou cai.</li>
+          </ul>
+          <table class="table">
+            <tr><th>Montaria</th><th>Deslocamento</th></tr>
+            <tr><td>Burro, mula, poney ou cavalo de carga</td><td>12 m</td></tr>
+            <tr><td>Cavalo de montaria ou guerra</td><td>18 m</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="card full" data-card data-tags="pdf escudo condicoes completo cego surdo amedrontado paralisado invisivel impedido atordoado inconsciente">
+        <div class="card-head"><h2>Condicoes Completas em Mesa</h2><span class="tag">Escudo PDF</span></div>
+        <div class="card-body">
+          <table class="table">
+            <tr><th>Condicao</th><th>Efeito resumido</th></tr>
+            <tr><td>Cego</td><td>Falha em testes de visao; ataques dele com desvantagem; ataques contra ele com vantagem.</td></tr>
+            <tr><td>Enfeitiçado</td><td>Nao ataca nem prejudica o encantador; encantador tem vantagem social contra o alvo.</td></tr>
+            <tr><td>Surdo</td><td>Falha em testes de audicao.</td></tr>
+            <tr><td>Amedrontado</td><td>Desvantagem em testes e ataques enquanto ve a fonte; nao se aproxima voluntariamente.</td></tr>
+            <tr><td>Agarrado</td><td>Deslocamento 0.</td></tr>
+            <tr><td>Incapacitado</td><td>Nao faz acoes nem reacoes.</td></tr>
+            <tr><td>Invisivel</td><td>Ataques dele com vantagem; ataques contra ele com desvantagem; ainda pode ser percebido por som, rastro e ficcao.</td></tr>
+            <tr><td>Paralisado</td><td>Incapacitado, nao fala nem move, falha em For/Des; ataques contra têm vantagem; adjacente que acerta causa critico.</td></tr>
+            <tr><td>Envenenado</td><td>Desvantagem em ataques e testes de habilidade.</td></tr>
+            <tr><td>Caido</td><td>Desvantagem em ataques; ataques adjacentes contra ele com vantagem; ataques distantes contra ele com desvantagem.</td></tr>
+            <tr><td>Impedido</td><td>Deslocamento 0; ataques dele com desvantagem; ataques contra com vantagem; Des com desvantagem.</td></tr>
+            <tr><td>Atordoado</td><td>Incapacitado, nao move, falha em For/Des; ataques contra com vantagem.</td></tr>
+            <tr><td>Inconsciente</td><td>Incapacitado, caido, solta itens, falha em For/Des; ataques adjacentes que acertam causam critico.</td></tr>
+          </table>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="improviso regra duvida decisao falha">
+        <div class="card-head"><h2>Improviso Seguro</h2><span class="tag">Ritmo</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Quando travar: diga o risco, escolha CD, role, avance.</li>
+            <li>Falha interessante: custo, tempo, recurso, dano, alarme, separacao.</li>
+            <li>Pista obrigatoria nao fica atras de uma unica rolagem.</li>
+            <li>Regra duvidosa: decida agora, anote, revise depois da sessao.</li>
+            <li>Se todos entenderam o risco antes da rolagem, a decisao tende a ser justa.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card wide" data-card data-tags="geradores tabelas aleatorio encontro npc tesouro clima">
+        <div class="card-head"><h2>Geradores Rapidos</h2><span class="tag">Ferramentas</span></div>
+        <div class="card-body">
+          <div class="rollbox" id="rollResult">Clique em um gerador para improvisar sem parar a mesa.</div>
+          <div class="search-row">
+            <button type="button" data-roll="hook">Gancho</button>
+            <button type="button" data-roll="npc">NPC</button>
+            <button type="button" data-roll="complication">Complicacao</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" data-card data-tags="checklist sessao preparo antes depois">
+        <div class="card-head"><h2>Checklist de Sessao</h2><span class="tag">Preparo</span></div>
+        <div class="card-body">
+          <ul>
+            <li>Resumo de 3 linhas da sessao anterior.</li>
+            <li>Objetivo provavel do grupo.</li>
+            <li>3 cenas fortes, 2 pistas, 1 combate modular.</li>
+            <li>Mapa/grid pronto ou plano de improviso.</li>
+            <li>NPCs com desejo e segredo.</li>
+            <li>Recompensa visivel e consequencia se demorarem.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card full" data-card data-tags="notas anotacoes mestre">
+        <div class="card-head"><h2>Notas do Mestre</h2><span class="tag">Local</span></div>
+        <div class="card-body">
+          <textarea id="notes" class="notes" placeholder="Anote decisoes de regra, nomes improvisados, dividas, consequencias e promessas feitas aos jogadores."></textarea>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const SESSION_KEY = "danubia-online-session";
+    const NOTE_KEY = "danubia-gm-shield-notes-v1";
+    const tables = {
+      hook: [
+        "Um mapa verdadeiro foi misturado entre tres mapas falsos vendidos no porto.",
+        "Uma vila pagou por protecao, mas o monstro e uma pessoa amaldicoada.",
+        "O contratante quer a ruina intacta; a guilda rival quer destruir tudo.",
+        "Um artefato acorda apenas quando alguem mente perto dele.",
+        "A estrada sumiu durante a noite e agora passa por outro lugar."
+      ],
+      npc: [
+        "Mercador calmo, deve dinheiro a piratas, reconhece um simbolo antigo.",
+        "Guarda cansado, leal ao povo, odeia a propria chefia.",
+        "Curandeira direta, esconde marcas de uma ruina viva.",
+        "Nobre jovem, quer provar valor, carrega mapa roubado.",
+        "Mineiro supersticioso, viu uma porta onde so havia pedra."
+      ],
+      complication: [
+        "Reforcos chegam em 1d4 rodadas se ninguem impedir o alarme.",
+        "O terreno cede e divide o grupo em duas zonas.",
+        "Um inocente esta no caminho do melhor ataque.",
+        "A magia funciona, mas chama atencao de algo antigo.",
+        "A recompensa existe, mas pertence a uma faccao poderosa."
+      ]
+    };
+    let activeShieldTab = localStorage.getItem("danubia-gm-shield-tab") || "combat";
+
+    initLinks();
+    initTheme();
+    bindTabs();
+    bindSearch();
+    bindRolls();
+    bindNotes();
+    document.getElementById("printBtn").addEventListener("click", () => window.print());
+
+    function initLinks() {
+      let session = null;
+      const params = new URLSearchParams(location.search);
+      if (params.get("role") === "gm" && params.get("room") && params.get("key")) {
+        session = { role: "gm", room: params.get("room"), key: params.get("key") };
+      }
+      try { session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch {}
+      if (params.get("role") === "gm" && params.get("room") && params.get("key")) {
+        session = { role: "gm", room: params.get("room"), key: params.get("key") };
+      }
+      if (!session || session.role !== "gm" || !session.room || !session.key) return;
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      const query = new URLSearchParams({ role: "gm", room: session.room, key: session.key }).toString();
+      document.querySelectorAll('a[href^="mesa-danubia.html"]').forEach((link) => {
+        const hash = link.getAttribute("href").split("#")[1] || "map";
+        link.href = `mesa-danubia.html?${query}#${hash}`;
+      });
+      document.querySelectorAll('a[href="index.html"]').forEach((link) => {
+        link.href = `index.html?${query}`;
+      });
+    }
+
+    function bindSearch() {
+      const search = document.getElementById("search");
+      search.addEventListener("input", () => filterCards(search.value));
+      document.querySelectorAll("[data-filter]").forEach((button) => {
+        button.addEventListener("click", () => {
+          search.value = button.dataset.filter || "";
+          filterCards(search.value);
+        });
+      });
+      filterCards(search.value);
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem("danubia-gm-shield-theme") || "dark";
+      setTheme(saved);
+      document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+        button.addEventListener("click", () => setTheme(button.dataset.themeChoice));
+      });
+    }
+
+    function setTheme(theme) {
+      const selected = ["dark", "paper", "slate"].includes(theme) ? theme : "dark";
+      document.body.dataset.theme = selected;
+      localStorage.setItem("danubia-gm-shield-theme", selected);
+      document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.themeChoice === selected));
+      });
+    }
+
+    function bindTabs() {
+      document.querySelectorAll("[data-shield-tab]").forEach((button) => {
+        button.addEventListener("click", () => {
+          activeShieldTab = button.dataset.shieldTab;
+          localStorage.setItem("danubia-gm-shield-tab", activeShieldTab);
+          document.querySelectorAll("[data-shield-tab]").forEach((item) => {
+            item.setAttribute("aria-selected", String(item === button));
+          });
+          filterCards(document.getElementById("search").value);
+        });
+        button.setAttribute("aria-selected", String(button.dataset.shieldTab === activeShieldTab));
+      });
+    }
+
+    function filterCards(value) {
+      const query = normalize(value);
+      document.querySelectorAll("[data-card]").forEach((card) => {
+        const text = normalize(`${card.textContent} ${card.dataset.tags || ""}`);
+        const section = sectionFor(card);
+        const sectionMatch = !query && section === activeShieldTab;
+        const searchMatch = query && text.includes(query);
+        card.hidden = !(sectionMatch || searchMatch);
+      });
+    }
+
+    function sectionFor(card) {
+      const tags = normalize(`${card.dataset.tags || ""} ${card.querySelector("h2")?.textContent || ""}`);
+      if (/combat|combate|iniciativa|magia|dano|morte|condico|cobertura|movimento|montaria|agarrar|encontrao|distancia/.test(tags)) return "combat";
+      if (/exploracao|viagem|clima|ambiente|luz|visao|rastrear|exaustao|fome|sede|perseguicao/.test(tags)) return "exploration";
+      if (/social|npc|reacao|conversa|tendencia|servicos|bens|intriga/.test(tags)) return "social";
+      return "master";
+    }
+
+    function bindRolls() {
+      document.querySelectorAll("[data-roll]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const list = tables[button.dataset.roll] || [];
+          const pick = list[Math.floor(Math.random() * list.length)] || "Sem resultado.";
+          document.getElementById("rollResult").textContent = pick;
+        });
+      });
+    }
+
+    function bindNotes() {
+      const notes = document.getElementById("notes");
+      notes.value = localStorage.getItem(NOTE_KEY) || "";
+      notes.addEventListener("input", () => localStorage.setItem(NOTE_KEY, notes.value));
+    }
+
+    function normalize(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+    }
+  </script>
+</body>
+</html>
